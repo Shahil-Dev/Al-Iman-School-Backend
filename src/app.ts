@@ -1,17 +1,25 @@
-import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
+import express, { Application, Request, Response } from 'express';
+import globalErrorHandler from './middlewares/globalErrorHandler';
+import notFound from './middlewares/notFound';
+
 
 const app: Application = express();
 
-// parsers
+// Parsers
 app.use(express.json());
 app.use(cors());
 
-// application routes
-// app.use('/api/v1', router);
-
+// Root Health Check Route
 app.get('/', (req: Request, res: Response) => {
-  res.send('Hello from Al-iman school!');
+  res.status(200).json({
+    success: true,
+    message: 'School Management ERP System API is Running Operational!',
+  });
 });
+
+// Global Middlewares
+app.use(globalErrorHandler);
+app.use(notFound);
 
 export default app;
