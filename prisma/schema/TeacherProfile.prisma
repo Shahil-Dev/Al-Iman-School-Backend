@@ -1,0 +1,17 @@
+model TeacherProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId  String   @unique
+  name        String
+  designation String
+  phone       String   @unique
+  photoUrl    String?
+
+  subjects    Subject[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("teacher_profiles")
+}

@@ -1,0 +1,22 @@
+model Notice {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  fileUrl   String?
+  isPublic  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("notices")
+}
+
+model AdmissionApplication {
+  id            String   @id @default(uuid())
+  applicantName String
+  phone         String
+  email         String?
+  desiredClass  String
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  appliedAt     DateTime @default(now())
+
+  @@map("admission_applications")
+}

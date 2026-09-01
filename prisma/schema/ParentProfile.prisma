@@ -1,0 +1,16 @@
+model ParentProfile {
+  id          String           @id @default(uuid())
+  userId      String           @unique
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fatherName  String
+  motherName  String
+  phone       String           @unique
+  occupation  String?
+
+  students    StudentProfile[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("parent_profiles")
+}

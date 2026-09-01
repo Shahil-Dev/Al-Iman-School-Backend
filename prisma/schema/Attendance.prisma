@@ -1,0 +1,14 @@
+model Attendance {
+  id        String           @id @default(uuid())
+  date      DateTime
+  status    AttendanceStatus
+  studentId String
+  student   StudentProfile   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sectionId String
+  section   Section          @relation(fields: [sectionId], references: [id])
+
+  createdAt DateTime         @default(now())
+
+  @@unique([studentId, date])
+  @@map("attendances")
+}

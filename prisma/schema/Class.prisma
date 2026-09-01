@@ -1,0 +1,15 @@
+model Class {
+  id             String           @id @default(uuid())
+  name           String           // e.g., Class 6, Class 7
+  academicYearId String
+  academicYear   AcademicYear     @relation(fields: [academicYearId], references: [id])
+  sections       Section[]
+  subjects       Subject[]
+  students       StudentProfile[]
+  feeStructures  FeeStructure[]
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("classes")
+}

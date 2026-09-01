@@ -1,0 +1,34 @@
+enum Role {
+  SUPER_ADMIN
+  ACCOUNTS
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HOLIDAY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  FAILED
+}
+
+enum PaymentMethod {
+  CASH
+  BKASH
+  NAGAD
+  SSLCOMMERZ
+}
