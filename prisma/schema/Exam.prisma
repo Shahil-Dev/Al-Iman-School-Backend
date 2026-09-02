@@ -1,11 +1,11 @@
 model Exam {
   id             String       @id @default(uuid())
-  name           String       // e.g., Half-Yearly, Final Exam
+  name           String // e.g., Half-Yearly, Final Exam
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
   marks          Mark[]
 
-  createdAt      DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@map("exams")
 }
@@ -19,12 +19,13 @@ model Mark {
   subjectId   String
   subject     Subject        @relation(fields: [subjectId], references: [id])
   
-  written     Float          @default(0)
-  mcq         Float          @default(0)
-  practical   Float          @default(0)
-  totalMarks  Float
-  grade       String         // A+, A, A-, B, C, D, F
-  gradePoint  Float          // 5.00, 4.00, etc.
+  fullMarks   Float          @default(100) // Subject full mark copy
+  mtMarks     Float?         @default(0)   // Model Test / MT Marks
+  terminal    Float          @default(0)   // Terminal Exam Marks
+  totalMarks  Float                        // Calculated: (mtMarks + terminal)
+  
+  grade       String                       // A+, A, A-, B, C, F
+  gradePoint  Float                        // 5.00, 4.00, 3.50, etc.
 
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt

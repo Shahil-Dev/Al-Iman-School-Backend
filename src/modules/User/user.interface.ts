@@ -30,3 +30,14 @@ export type TCreateStudentPayload = {
     parentId?: string;
   };
 };
+
+export type TCreateParentPayload = {
+  password?: string;
+  parent: {
+    email?: string;
+    fatherName: string;
+    motherName: string;
+    phone: string;
+    occupation?: string;
+  };
+};

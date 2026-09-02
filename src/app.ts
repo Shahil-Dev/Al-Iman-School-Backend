@@ -1,9 +1,10 @@
 import cors from "cors";
 import express, { Application, Request, Response } from "express";
-import globalErrorHandler from "./middlewares/globalErrorHandler";
+
 import notFound from "./middlewares/notFound";
 import { AuthRoutes } from "./modules/Auth/auth.route";
 import router from "./routes";
+import { globalErrorHandler } from "./middlewares/globalErrorHandler";
 
 const app: Application = express();
 

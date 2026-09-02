@@ -1,14 +1,18 @@
-import bcrypt from 'bcrypt';
-import config from '../../config';
+import bcrypt from "bcrypt";
+import config from "../../config";
 
-import { Role } from '@prisma/client';
-import { TCreateStudentPayload, TCreateTeacherPayload } from './user.interface';
-import prisma from '../../lib/prisma';
-
+import { Role } from "@prisma/client";
+import {
+  TCreateParentPayload,
+  TCreateStudentPayload,
+  TCreateTeacherPayload,
+} from "./user.interface";
+import prisma from "../../lib/prisma";
+// 1. Create Teacher Profile
 const createTeacherIntoDB = async (payload: TCreateTeacherPayload) => {
   const password = await bcrypt.hash(
-    payload.password || '123456',
-    Number(config.bcrypt_salt_rounds)
+    payload.password || "123456",
+    Number(config.bcrypt_salt_rounds),
   );
 
   const result = await prisma.$transaction(async (transactionClient) => {
@@ -38,16 +42,17 @@ const createTeacherIntoDB = async (payload: TCreateTeacherPayload) => {
 
   return result;
 };
-
+// 2. Create Student Profile
 const createStudentIntoDB = async (payload: TCreateStudentPayload) => {
   const password = await bcrypt.hash(
-    payload.password || '123456',
-    Number(config.bcrypt_salt_rounds)
+    payload.password || "123456",
+    Number(config.bcrypt_salt_rounds),
   );
 
   const result = await prisma.$transaction(async (transactionClient) => {
     // 1. Create Base User
-    const userEmail = payload.student.email || `${payload.student.studentIdNo}@school.com`;
+    const userEmail =
+      payload.student.email || `${payload.student.studentIdNo}@school.com`;
 
     const newUser = await transactionClient.user.create({
       data: {
@@ -81,8 +86,45 @@ const createStudentIntoDB = async (payload: TCreateStudentPayload) => {
 
   return result;
 };
+// 3. Create Parent Profile
+const createParentIntoDB = async (payload: TCreateParentPayload) => {
+  const password = await bcrypt.hash(
+    payload.password || "123456",
+    Number(config.bcrypt_salt_rounds),
+  );
+
+  const result = await prisma.$transaction(async (transactionClient) => {
+    // 1. Create Base User
+    const userEmail =
+      payload.parent.email || `parent_${payload.parent.phone}@school.com`;
+
+    const newUser = await transactionClient.user.create({
+      data: {
+        email: userEmail,
+        password,
+        role: Role.PARENT,
+      },
+    });
+
+    // 2. Create Parent Profile
+    const newParentProfile = await transactionClient.parentProfile.create({
+      data: {
+        userId: newUser.id,
+        fatherName: payload.parent.fatherName,
+        motherName: payload.parent.motherName,
+        phone: payload.parent.phone,
+        occupation: payload.parent.occupation,
+      },
+    });
+
+    return newParentProfile;
+  });
+
+  return result;
+};
 
 export const UserService = {
   createTeacherIntoDB,
   createStudentIntoDB,
+  createParentIntoDB,
 };

@@ -1,15 +1,17 @@
 model Subject {
-  id        String          @id @default(uuid())
-  name      String          // e.g., English, Mathematics
-  code      String
-  classId   String
-  class     Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
-  teacherId String?
-  teacher   TeacherProfile? @relation(fields: [teacherId], references: [id])
-  marks     Mark[]
+  id          String           @id @default(uuid())
+  name        String           // e.g., English 1st, Drawing
+  code        String
+  fullMarks   Float            @default(100) // 100, 50, or 25
+  hasMT       Boolean          @default(true) // Primary subjects like Drawing may not have MT
+  classId     String
+  class       Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacherId   String?
+  teacher     TeacherProfile?  @relation(fields: [teacherId], references: [id])
+  marks       Mark[]
 
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@map("subjects")
 }
