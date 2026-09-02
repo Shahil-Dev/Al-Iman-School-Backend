@@ -1,17 +1,15 @@
 export type TAcademicYear = {
-  title: string; // e.g., "2026"
-  code: string;  // e.g., "AY-2026"
-  startDate: string;
-  endDate: string;
+  year: number;
+  isCurrent?: boolean;
 };
 
 export type TAcademicClass = {
-  title: string; // e.g., "Class 10"
-  code: string;  // e.g., "C10"
+  name: string;
+  code: string;
 };
 
 export type TAcademicSection = {
-  title: string; // e.g., "Section A"
+  name: string;
   capacity: number;
   classId: string;
 };
