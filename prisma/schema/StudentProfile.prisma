@@ -2,7 +2,7 @@ model StudentProfile {
   id          String   @id @default(uuid())
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  studentIdNo String   @unique // School Register/Admission ID (e.g. ST-2026-001)
+  studentIdNo String   @unique
   firstName   String
   lastName    String
   gender      Gender
@@ -11,23 +11,22 @@ model StudentProfile {
   address     String?
   photoUrl    String?
 
-  classId     String
-  class       Class    @relation(fields: [classId], references: [id])
-  sectionId   String
-  section     Section  @relation(fields: [sectionId], references: [id])
-  rollNo      Int
+  classId   String
+  class     Class   @relation(fields: [classId], references: [id])
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id])
+  rollNo    Int
 
-  parentId    String?
-  parent      ParentProfile? @relation(fields: [parentId], references: [id])
+  parentId String?
+  parent   ParentProfile? @relation(fields: [parentId], references: [id])
 
   attendances Attendance[]
   marks       Mark[]
   invoices    StudentInvoice[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  
   @@unique([classId, sectionId, rollNo])
   @@map("student_profiles")
 }
