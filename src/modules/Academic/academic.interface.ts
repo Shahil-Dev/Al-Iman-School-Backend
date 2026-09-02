@@ -11,6 +11,5 @@ export type TAcademicClass = {
 
 export type TAcademicSection = {
   name: string;
-  capacity: number;
   classId: string;
 };

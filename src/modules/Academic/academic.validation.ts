@@ -14,7 +14,15 @@ const createAcademicClassValidationSchema = z.object({
   }),
 });
 
+const createAcademicSectionValidationSchema = z.object({
+  body: z.object({
+    name: z.string({ message: 'Section name is required!' }),
+    classId: z.string({ message: 'Class ID is required!' }),
+  }),
+});
+
 export const AcademicValidation = {
   createAcademicYearValidationSchema,
   createAcademicClassValidationSchema,
+  createAcademicSectionValidationSchema,
 };
