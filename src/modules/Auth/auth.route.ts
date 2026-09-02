@@ -1,13 +1,18 @@
 import express from "express";
 import { Role } from "@prisma/client";
 import authGuard from "../../middlewares/authGuard";
+import validateRequest from "../../middlewares/validateRequest";
 import { AuthController } from "./auth.controller";
+import { AuthValidation } from "./auth.validation";
 
 const router = express.Router();
 
-router.post("/login", AuthController.loginUser);
+router.post(
+  "/login",
+  validateRequest(AuthValidation.loginValidationSchema),
+  AuthController.loginUser,
+);
 
-// Protected route to get the profile of the logged-in user
 router.get(
   "/me",
   authGuard(
