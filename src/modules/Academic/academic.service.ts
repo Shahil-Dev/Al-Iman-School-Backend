@@ -20,7 +20,11 @@ const getAllAcademicYears = async () => {
 // --- Academic Class Services ---
 const createAcademicClass = async (payload: TAcademicClass) => {
   const result = await prisma.class.create({
-    data: payload as any,
+    data: {
+      name: payload.name,
+      code: payload.code,
+      academicYearId: payload.academicYearId,
+    },
   });
   return result;
 };

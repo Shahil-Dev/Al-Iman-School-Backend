@@ -6,6 +6,7 @@ export type TAcademicYear = {
 export type TAcademicClass = {
   name: string;
   code: string;
+  academicYearId: string;
 };
 
 export type TAcademicSection = {

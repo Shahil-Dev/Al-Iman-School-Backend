@@ -10,7 +10,7 @@ const createAcademicYearValidationSchema = z.object({
 const createAcademicClassValidationSchema = z.object({
   body: z.object({
     name: z.string({ message: 'Class name is required!' }),
-    code: z.string({ message: 'Class code is required!' }),
+    academicYearId: z.string({ message: 'Academic Year ID is required!' }),
   }),
 });
 
