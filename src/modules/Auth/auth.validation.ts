@@ -1,6 +1,16 @@
-import { MAX_UPLOAD_SIZE } from '../../constants';
-// import { z } from 'zod';
+import { z } from 'zod';
 
-export const authValidationSchema = {
-    // Add validation schemas here
-    };
+const loginValidationSchema = z.object({
+  body: z.object({
+    email: z.string({
+      message: 'Email or User ID is required!',
+    }),
+    password: z.string({
+      message: 'Password is required!',
+    }),
+  }),
+});
+
+export const AuthValidation = {
+  loginValidationSchema,
+};
