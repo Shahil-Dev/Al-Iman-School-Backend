@@ -9,9 +9,9 @@ model Subject {
   teacherId String?
   teacher   TeacherProfile? @relation(fields: [teacherId], references: [id])
   marks     Mark[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  routines  ClassRoutine[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@map("subjects")
 }

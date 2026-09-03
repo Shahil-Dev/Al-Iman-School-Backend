@@ -38,3 +38,10 @@ enum PaymentMethod {
   NAGAD
   SSLCOMMERZ
 }
+
+enum NoticeTarget {
+  ALL
+  STUDENTS
+  TEACHERS
+  PARENTS
+}

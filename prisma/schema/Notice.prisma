@@ -1,0 +1,36 @@
+model Notice {
+  id          String       @id @default(uuid())
+  title       String
+  content     String
+  targetGroup NoticeTarget @default(ALL)
+  attachment  String? // PDF or Image URL
+  publishedAt DateTime     @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notices")
+}
+
+model ClassRoutine {
+  id        String @id @default(uuid())
+  day       String // e.g., "SUNDAY", "MONDAY"
+  startTime String // e.g., "09:00 AM"
+  endTime   String // e.g., "09:45 AM"
+
+  classId String
+  class   Class  @relation(fields: [classId], references: [id])
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id])
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  teacherId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("class_routines")
+}

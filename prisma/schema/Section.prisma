@@ -5,9 +5,9 @@ model Section {
   class       Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
   students    StudentProfile[]
   attendances Attendance[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  routines    ClassRoutine[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@map("sections")
 }
