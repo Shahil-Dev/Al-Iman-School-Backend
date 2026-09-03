@@ -1,5 +1,6 @@
+import QRCode from 'qrcode';
 import prisma from '../../lib/prisma';
-import QRCode from 'qrcode'
+
 const getStudentIdCardDataFromDB = async (studentId: string) => {
   const student = await prisma.studentProfile.findUnique({
     where: { id: studentId },
@@ -35,7 +36,7 @@ const getStudentIdCardDataFromDB = async (studentId: string) => {
       rollNo: student.rollNo,
       fullName: `${student.firstName} ${student.lastName}`,
       gender: student.gender,
-      bloodGroup: student.bloodGroup,
+      bloodGroup: student.bloodGroup ,
       guardianName: student.guardianName,
       guardianPhone: student.guardianPhone,
       className: student.class?.className,
@@ -46,7 +47,6 @@ const getStudentIdCardDataFromDB = async (studentId: string) => {
   };
 };
 
-// ২. প্রশংসাপত্র / টেস্টমোনিয়াল ডাটা প্রসেসিং
 const getTestimonialDataFromDB = async (studentId: string) => {
   const student = await prisma.studentProfile.findUnique({
     where: { id: studentId },
