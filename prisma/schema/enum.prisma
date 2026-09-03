@@ -16,7 +16,6 @@ enum AttendanceStatus {
   PRESENT
   ABSENT
   LATE
-  HOLIDAY
 }
 
 enum PaymentStatus {

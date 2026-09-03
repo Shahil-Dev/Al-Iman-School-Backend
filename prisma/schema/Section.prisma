@@ -1,13 +1,13 @@
 model Section {
-  id        String           @id @default(uuid())
-  name      String           // e.g., Section A, Section B
-  classId   String
-  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
-  students  StudentProfile[]
+  id          String           @id @default(uuid())
+  name        String // e.g., Section A, Section B
+  classId     String
+  class       Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  students    StudentProfile[]
   attendances Attendance[]
 
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("sections")
 }

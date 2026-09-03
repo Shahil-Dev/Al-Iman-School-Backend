@@ -1,12 +1,12 @@
 model AcademicYear {
-  id        String    @id @default(uuid())
-  year      Int       @unique // e.g., 2026
-  isCurrent Boolean   @default(false)
+  id        String  @id @default(uuid())
+  year      Int     @unique // e.g., 2026
+  isCurrent Boolean @default(false)
   classes   Class[]
   exams     Exam[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("academic_years")
 }

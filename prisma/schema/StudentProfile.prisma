@@ -22,7 +22,8 @@ model StudentProfile {
 
   attendances Attendance[]
   marks       Mark[]
-  invoices    StudentInvoice[]
+
+  invoices StudentInvoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

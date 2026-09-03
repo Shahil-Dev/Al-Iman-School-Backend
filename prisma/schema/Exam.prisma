@@ -11,24 +11,24 @@ model Exam {
 }
 
 model Mark {
-  id          String         @id @default(uuid())
-  examId      String
-  exam        Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subjectId   String
-  subject     Subject        @relation(fields: [subjectId], references: [id])
-  
-  fullMarks   Float          @default(100) // Subject full mark copy
-  mtMarks     Float?         @default(0)   // Model Test / MT Marks
-  terminal    Float          @default(0)   // Terminal Exam Marks
-  totalMarks  Float                        // Calculated: (mtMarks + terminal)
-  
-  grade       String                       // A+, A, A-, B, C, F
-  gradePoint  Float                        // 5.00, 4.00, 3.50, etc.
+  id        String         @id @default(uuid())
+  examId    String
+  exam      Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject        @relation(fields: [subjectId], references: [id])
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  fullMarks  Float  @default(100) // Subject full mark copy
+  mtMarks    Float? @default(0) // Model Test / MT Marks
+  terminal   Float  @default(0) // Terminal Exam Marks
+  totalMarks Float // Calculated: (mtMarks + terminal)
+
+  grade      String // A+, A, A-, B, C, F
+  gradePoint Float // 5.00, 4.00, 3.50, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([examId, studentId, subjectId])
   @@map("marks")
