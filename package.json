@@ -33,6 +33,7 @@
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.1.1",
     "pg": "^8.23.0",
+    "qrcode": "^1.5.4",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -45,6 +46,7 @@
     "@types/node": "^26.4.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.6",
     "eslint": "^10.9.1",
     "prettier": "^3.9.6",
     "prisma": "^5.22.0",
