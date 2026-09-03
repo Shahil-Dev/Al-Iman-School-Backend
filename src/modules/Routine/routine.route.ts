@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post(
   "/create-slot",
-  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
+  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
   RoutineController.createRoutineSlot,
 );
 
