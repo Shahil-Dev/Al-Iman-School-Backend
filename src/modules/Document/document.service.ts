@@ -12,6 +12,7 @@ const getStudentIdCardDataFromDB = async (studentId: string) => {
       },
       class: true,
       section: true,
+      parent: true, 
     },
   });
 
@@ -19,13 +20,19 @@ const getStudentIdCardDataFromDB = async (studentId: string) => {
     throw new Error('Student not found!');
   }
 
+  const guardianName = student.parent
+    ? `${student.parent.fatherName || student.parent.motherName || 'N/A'}`
+    : 'N/A';
+  const guardianPhone = student.parent?.phone || student.phone || 'N/A';
+
   // QR Code Content generation for scanning verification
   const qrData = JSON.stringify({
     studentId: student.id,
+    studentIdNo: student.studentIdNo,
     rollNo: student.rollNo,
     studentName: `${student.firstName} ${student.lastName}`,
-    class: student.class?.className,
-    guardianPhone: student.guardianPhone,
+    class: student.class?.name,
+    guardianPhone: guardianPhone,
   });
 
   const qrCodeBase64 = await QRCode.toDataURL(qrData);
@@ -33,15 +40,18 @@ const getStudentIdCardDataFromDB = async (studentId: string) => {
   return {
     idCardInfo: {
       studentId: student.id,
+      studentIdNo: student.studentIdNo,
       rollNo: student.rollNo,
       fullName: `${student.firstName} ${student.lastName}`,
       gender: student.gender,
-      bloodGroup: student.bloodGroup ,
-      guardianName: student.guardianName,
-      guardianPhone: student.guardianPhone,
-      className: student.class?.className,
-      sectionName: student.section?.sectionName,
-      profileImage: student.profileImage || null,
+      dob: student.dob,
+      phone: student.phone || 'N/A',
+      address: student.address || 'N/A',
+      guardianName: guardianName,
+      guardianPhone: guardianPhone,
+      className: student.class?.name,
+      sectionName: student.section?.name,
+      profileImage: student.photoUrl || null,
       qrCode: qrCodeBase64,
     },
   };
@@ -53,6 +63,7 @@ const getTestimonialDataFromDB = async (studentId: string) => {
     include: {
       class: true,
       section: true,
+      parent: true,
     },
   });
 
@@ -62,12 +73,13 @@ const getTestimonialDataFromDB = async (studentId: string) => {
 
   return {
     studentName: `${student.firstName} ${student.lastName}`,
-    fatherName: student.fatherName || student.guardianName,
-    motherName: student.motherName || 'N/A',
+    studentIdNo: student.studentIdNo,
+    fatherName: student.parent?.fatherName || 'N/A',
+    motherName: student.parent?.motherName || 'N/A',
     rollNo: student.rollNo,
-    className: student.class?.className,
-    session: student.session || new Date().getFullYear().toString(),
-    dateOfBirth: student.dateOfBirth,
+    className: student.class?.name,
+    session: new Date(student.createdAt).getFullYear().toString(),
+    dateOfBirth: student.dob,
     issueDate: new Date(),
     status: 'Passed successfully with good moral character.',
   };
