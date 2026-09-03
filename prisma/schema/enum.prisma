@@ -12,6 +12,12 @@ enum Gender {
   OTHER
 }
 
+enum AdmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum AttendanceStatus {
   PRESENT
   ABSENT

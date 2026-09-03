@@ -9,14 +9,43 @@ model Notice {
   @@map("notices")
 }
 
+// model AdmissionApplication {
+//   id            String   @id @default(uuid())
+//   applicantName String
+//   phone         String
+//   email         String?
+//   desiredClass  String
+//   status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+//   appliedAt     DateTime @default(now())
+
+//   @@map("admission_applications")
+// }
+
+
 model AdmissionApplication {
-  id            String   @id @default(uuid())
-  applicantName String
-  phone         String
-  email         String?
-  desiredClass  String
-  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  appliedAt     DateTime @default(now())
+  id              String          @id @default(uuid())
+  applicationNo   String          @unique // e.g., ADM-2026-X891A
+  studentName     String
+  email           String
+  phone           String
+  dateOfBirth     String
+  gender          String
+  address         String
+  guardianName    String
+  guardianPhone   String
+  classId         String
+  class           Class           @relation(fields: [classId], references: [id])
+  
+  // Payment Info
+  paymentMethod   PaymentMethod   
+  senderPhone     String
+  amount          Float
+  transactionId   String          @unique 
+  status          AdmissionStatus @default(PENDING)
+  rejectReason    String?
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@map("admission_applications")
 }

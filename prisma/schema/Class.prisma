@@ -8,6 +8,7 @@ model Class {
   students       StudentProfile[]
   feeStructures  FeeStructure[]
   attendances    Attendance[]
+  admissionApplications AdmissionApplication[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
