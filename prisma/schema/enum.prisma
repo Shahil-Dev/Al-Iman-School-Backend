@@ -45,3 +45,11 @@ enum NoticeTarget {
   TEACHERS
   PARENTS
 }
+
+
+enum DocumentType {
+  ID_CARD
+  TESTIMONIAL
+  TRANSFER_CERTIFICATE
+  MARK_SHEET
+}
