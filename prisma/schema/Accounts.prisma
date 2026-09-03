@@ -44,7 +44,7 @@ model PaymentTransaction {
   invoice       StudentInvoice @relation(fields: [invoiceId], references: [id])
   amount        Float
   method        PaymentMethod
-  transactionId String? // bKash / Nagad / SSLCommerz Txn ID
+  transactionId String?
   status        PaymentStatus  @default(PENDING)
 
   createdAt DateTime @default(now())

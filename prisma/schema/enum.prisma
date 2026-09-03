@@ -23,6 +23,7 @@ enum PaymentStatus {
   PAID
   PARTIAL
   FAILED
+  CANCELLED
 }
 
 enum PaymentMethod {
