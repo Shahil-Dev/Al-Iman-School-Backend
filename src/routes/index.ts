@@ -12,6 +12,7 @@ import { ExamRoutes } from "../modules/Exam/exam.route";
 import { NoticeRoutes } from "../modules/Notice/notice.route";
 import { RoutineRoutes } from "../modules/Routine/routine.route";
 import { DocumentRoutes } from "../modules/Document/document.route";
+import { PayrollRoutes } from "../modules/Payroll/payroll.route";
 
 const router = express.Router();
 
@@ -65,8 +66,12 @@ const moduleRoutes = [
     route: RoutineRoutes,
   },
   {
-    path: '/documents',
+    path: "/documents",
     route: DocumentRoutes,
+  },
+  {
+    path: "/payrolls",
+    route: PayrollRoutes,
   },
 ];
 
