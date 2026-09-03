@@ -6,7 +6,7 @@ import { DocumentController } from './document.controller';
 const router = express.Router();
 
 router.get(
-  '/id-card/:studentId',
+  '/id_card/:studentId',
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.STUDENT),
   DocumentController.getStudentIdCard
 );

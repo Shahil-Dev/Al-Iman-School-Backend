@@ -46,10 +46,14 @@ enum NoticeTarget {
   PARENTS
 }
 
-
 enum DocumentType {
   ID_CARD
   TESTIMONIAL
   TRANSFER_CERTIFICATE
   MARK_SHEET
+}
+
+enum PayrollStatus {
+  PENDING
+  PAID
 }
