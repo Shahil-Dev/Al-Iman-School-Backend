@@ -24,7 +24,7 @@ export const globalErrorHandler = (
     },
   ];
 
-  // ২. Zod Validation Error handling
+  // 2. Zod Validation Error handling
   if (err instanceof ZodError) {
     statusCode = 400;
     message = "Validation Error";
