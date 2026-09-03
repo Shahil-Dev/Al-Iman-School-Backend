@@ -4,6 +4,7 @@ import { AcademicRoutes } from "../modules/Academic/academic.route";
 import { UserRoutes } from "../modules/User/user.route";
 import { SubjectRoutes } from "../modules/Subject/subject.route";
 import { MarkRoutes } from "../modules/Mark/mark.route";
+import { ReviewRoutes } from "../modules/Review/review.route";
 
 const router = express.Router();
 
@@ -25,9 +26,13 @@ const moduleRoutes = [
     route: SubjectRoutes,
   },
   {
-  path: '/marks',
-  route: MarkRoutes,
-}
+    path: "/marks",
+    route: MarkRoutes,
+  },
+  {
+    path: "/reviews",
+    route: ReviewRoutes,
+  },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

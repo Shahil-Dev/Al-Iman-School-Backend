@@ -1,0 +1,13 @@
+model Review {
+  id        String        @id @default(uuid())
+  parentId  String
+  parent    ParentProfile @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  comment   String
+  rating    Int           // 1 to 5 Stars
+  isApproved Boolean      @default(false) // Admin approval workflow
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("reviews")
+}
