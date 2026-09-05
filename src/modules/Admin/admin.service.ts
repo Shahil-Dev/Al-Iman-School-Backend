@@ -1,36 +1,38 @@
-import bcrypt from 'bcrypt';
-import prisma from '../../lib/prisma';
+import bcrypt from "bcrypt";
+import config from "../../config/index";
+import prisma from "../../lib/prisma";
 
 const getDashboardAnalyticsFromDB = async () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+  const endOfMonth = new Date(
+    today.getFullYear(),
+    today.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+  );
 
   const [
     totalStudents,
     totalTeachers,
     totalParents,
     todayStudentAttendance,
-    todayTeacherAttendance,
     monthlyCollectedFees,
-    totalDueFees,
+    totalInvoicedFees,
     pendingPayrolls,
+    pendingReviewsCount,
+    totalDocumentsIssued,
   ] = await Promise.all([
     prisma.studentProfile.count(),
     prisma.teacherProfile.count(),
     prisma.parentProfile.count(),
 
     prisma.attendance.groupBy({
-      by: ['status'],
-      where: {
-        date: { gte: today },
-      },
-      _count: { status: true },
-    }),
-    prisma.teacherAttendance.groupBy({
-      by: ['status'],
+      by: ["status"],
       where: {
         date: { gte: today },
       },
@@ -40,40 +42,54 @@ const getDashboardAnalyticsFromDB = async () => {
     prisma.studentInvoice.aggregate({
       _sum: { paidAmount: true },
       where: {
-        status: 'PAID',
+        status: "PAID",
         updatedAt: { gte: startOfMonth, lte: endOfMonth },
       },
     }),
 
     prisma.studentInvoice.aggregate({
-      _sum: { dueAmount: true },
+      _sum: {
+        amount: true,
+        paidAmount: true,
+      },
       where: {
-        status: { in: ['UNPAID', 'PARTIAL'] },
+        status: { in: ["PENDING", "PARTIAL"] },
       },
     }),
 
-    prisma.payroll.aggregate({
+    prisma.teacherPayroll.aggregate({
       _sum: { netSalary: true },
       _count: { id: true },
       where: {
-        status: 'PENDING',
+        status: "PENDING",
       },
     }),
+
+    prisma.review.count({
+      where: { isApproved: false },
+    }),
+
+    prisma.studentDocument.count(),
   ]);
+
+  const totalAmount = totalInvoicedFees._sum.amount || 0;
+  const totalPaid = totalInvoicedFees._sum.paidAmount || 0;
+  const totalDueAmount = totalAmount - totalPaid;
 
   return {
     overview: {
       totalStudents,
       totalTeachers,
       totalParents,
+      pendingReviewsCount,
+      totalDocumentsIssued,
     },
     todayAttendance: {
       students: todayStudentAttendance,
-      teachers: todayTeacherAttendance,
     },
     financials: {
       monthlyCollectedAmount: monthlyCollectedFees._sum.paidAmount || 0,
-      totalDueAmount: totalDueFees._sum.dueAmount || 0,
+      totalDueAmount: totalDueAmount > 0 ? totalDueAmount : 0,
       pendingPayrollAmount: pendingPayrolls._sum.netSalary || 0,
       pendingPayrollCount: pendingPayrolls._count.id || 0,
     },
@@ -83,7 +99,7 @@ const getDashboardAnalyticsFromDB = async () => {
 const getStudentDueReportFromDB = async () => {
   const dueInvoices = await prisma.studentInvoice.findMany({
     where: {
-      status: { in: ['UNPAID', 'PARTIAL'] },
+      status: { in: ["PENDING", "PARTIAL"] },
     },
     include: {
       student: {
@@ -99,10 +115,33 @@ const getStudentDueReportFromDB = async () => {
         },
       },
     },
-    orderBy: { dueAmount: 'desc' },
+    orderBy: { createdAt: "desc" },
   });
 
-  return dueInvoices;
+  return dueInvoices.map((invoice) => ({
+    ...invoice,
+    dueAmount: invoice.amount - invoice.paidAmount,
+  }));
+};
+
+const toggleReviewApprovalInDB = async (
+  reviewId: string,
+  isApproved: boolean,
+) => {
+  const reviewExists = await prisma.review.findUnique({
+    where: { id: reviewId },
+  });
+
+  if (!reviewExists) {
+    throw new Error("Review not found!");
+  }
+
+  const updatedReview = await prisma.review.update({
+    where: { id: reviewId },
+    data: { isApproved },
+  });
+
+  return updatedReview;
 };
 
 const resetUserPasswordInDB = async (userId: string, newPassword: string) => {
@@ -111,12 +150,12 @@ const resetUserPasswordInDB = async (userId: string, newPassword: string) => {
   });
 
   if (!userExists) {
-    throw new Error('User not found!');
+    throw new Error("User not found!");
   }
 
   const hashedPassword = await bcrypt.hash(
     newPassword,
-    Number(config.bycrypt_salt_rounds)
+    Number(config.bcrypt_salt_rounds),
   );
 
   await prisma.user.update({
@@ -124,11 +163,12 @@ const resetUserPasswordInDB = async (userId: string, newPassword: string) => {
     data: { password: hashedPassword },
   });
 
-  return { message: 'Password updated successfully!' };
+  return { message: "Password updated successfully!" };
 };
 
 export const AdminService = {
   getDashboardAnalyticsFromDB,
   getStudentDueReportFromDB,
+  toggleReviewApprovalInDB,
   resetUserPasswordInDB,
 };
