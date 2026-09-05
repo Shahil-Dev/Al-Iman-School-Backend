@@ -15,6 +15,7 @@ import { DocumentRoutes } from "../modules/Document/document.route";
 import { PayrollRoutes } from "../modules/Payroll/payroll.route";
 import { ParentRoutes } from "../modules/Parent/parent.route";
 import { AdminRoutes } from "../modules/Admin/admin.route"; // <--- Add this
+import { MailNotificationRoutes } from "../modules/SMS/sMS.route";
 
 const router = express.Router();
 
@@ -82,6 +83,10 @@ const moduleRoutes = [
   {
     path: "/admin",
     route: AdminRoutes,
+  },
+  {
+    path: "/notifications",
+    route: MailNotificationRoutes,
   },
 ];
 
