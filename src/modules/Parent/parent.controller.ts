@@ -31,7 +31,52 @@ const getChildOverview = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const assignStudent = catchAsync(async (req: Request, res: Response) => {
+  const result = await ParentService.assignStudentToParentInDB(req.body);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Student assigned to parent successfully!",
+    data: result,
+  });
+});
+
+const removeStudent = catchAsync(async (req: Request, res: Response) => {
+  const { studentId } = req.params;
+  const result = await ParentService.removeStudentFromParentInDB(
+    studentId as string,
+  );
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Student removed from parent successfully!",
+    data: result,
+  });
+});
+
+const getFullStudentAccess = catchAsync(async (req: Request, res: Response) => {
+  const parentUserId = (req as any).user.id;
+  const { studentId } = req.params;
+
+  const result = await ParentService.getFullStudentAccessForParentInDB(
+    parentUserId,
+    studentId as string,
+  );
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Full student control panel data retrieved successfully!",
+    data: result,
+  });
+});
+
 export const ParentController = {
   getMyChildren,
   getChildOverview,
+  assignStudent,
+  removeStudent,
+  getFullStudentAccess,
 };
