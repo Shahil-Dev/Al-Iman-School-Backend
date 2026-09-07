@@ -24,3 +24,4 @@ app.use("/api/v1", routes_1.default);
 app.use(globalErrorHandler_1.globalErrorHandler);
 app.use(notFound_1.default);
 exports.default = app;
+module.exports = app;
