@@ -6,3 +6,5 @@ export type TCreateSubjectPayload = {
   classId: string;
   teacherId?: string;
 };
+
+export type TUpdateSubjectPayload = Partial<TCreateSubjectPayload>;
