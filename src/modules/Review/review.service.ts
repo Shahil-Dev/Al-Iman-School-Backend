@@ -1,4 +1,3 @@
-
 import prisma from '../../lib/prisma';
 import { TCreateReviewPayload } from './review.interface';
 
