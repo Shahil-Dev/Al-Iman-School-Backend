@@ -28,19 +28,6 @@ const getAllAcademicYears = catchAsync(async (req: Request, res: Response) => {
 const createAcademicClass = catchAsync(async (req: Request, res: Response) => {
   const result = await AcademicService.createAcademicClass(req.body);
 
-  const createAcademicSection = catchAsync(
-    async (req: Request, res: Response) => {
-      const result = await AcademicService.createAcademicSection(req.body);
-
-      sendResponse(res, {
-        statusCode: 201,
-        success: true,
-        message: "Academic Section created successfully!",
-        data: result,
-      });
-    },
-  );
-
   sendResponse(res, {
     statusCode: 201,
     success: true,
@@ -49,31 +36,60 @@ const createAcademicClass = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getAllAcademicClasses = catchAsync(
-  async (req: Request, res: Response) => {
-    const result = await AcademicService.getAllAcademicClasses();
+const getAllAcademicClasses = catchAsync(async (req: Request, res: Response) => {
+  const result = await AcademicService.getAllAcademicClasses();
 
-    sendResponse(res, {
-      statusCode: 200,
-      success: true,
-      message: "Academic Classes retrieved successfully!",
-      data: result,
-    });
-  },
-);
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Academic Classes retrieved successfully!",
+    data: result,
+  });
+});
 
-const createAcademicSection = catchAsync(
-  async (req: Request, res: Response) => {
-    const result = await AcademicService.createAcademicSection(req.body);
+const createAcademicSection = catchAsync(async (req: Request, res: Response) => {
+  const result = await AcademicService.createAcademicSection(req.body);
 
-    sendResponse(res, {
-      statusCode: 201,
-      success: true,
-      message: "Academic Section created successfully!",
-      data: result,
-    });
-  },
-);
+  sendResponse(res, {
+    statusCode: 201,
+    success: true,
+    message: "Academic Section created successfully!",
+    data: result,
+  });
+});
+
+const getAllAcademicSections = catchAsync(async (req: Request, res: Response) => {
+  const result = await AcademicService.getAllAcademicSections();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Academic Sections retrieved successfully!",
+    data: result,
+  });
+});
+
+const createAcademicSubject = catchAsync(async (req: Request, res: Response) => {
+  const result = await AcademicService.createAcademicSubject(req.body);
+
+  sendResponse(res, {
+    statusCode: 201,
+    success: true,
+    message: "Academic Subject created successfully!",
+    data: result,
+  });
+});
+
+const getAllAcademicSubjects = catchAsync(async (req: Request, res: Response) => {
+  const result = await AcademicService.getAllAcademicSubjects();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Academic Subjects retrieved successfully!",
+    data: result,
+  });
+});
 
 export const AcademicController = {
   createAcademicYear,
@@ -81,4 +97,7 @@ export const AcademicController = {
   createAcademicClass,
   getAllAcademicClasses,
   createAcademicSection,
+  getAllAcademicSections,
+  createAcademicSubject,
+  getAllAcademicSubjects,
 };

@@ -1,48 +1,76 @@
-// import prisma from '../../../lib/prisma';
 import prisma from '../../lib/prisma';
-import { TAcademicClass, TAcademicSection, TAcademicYear } from './academic.interface';
+import {
+  TAcademicClass,
+  TAcademicSection,
+  TAcademicSubject,
+  TAcademicYear,
+} from './academic.interface';
 
 // --- Academic Year Services ---
 const createAcademicYear = async (payload: TAcademicYear) => {
-  const result = await prisma.academicYear.create({
+  return await prisma.academicYear.create({
     data: payload,
   });
-  return result;
 };
 
 const getAllAcademicYears = async () => {
-  const result = await prisma.academicYear.findMany({
+  return await prisma.academicYear.findMany({
     orderBy: { year: 'desc' },
   });
-  return result;
 };
 
 // --- Academic Class Services ---
 const createAcademicClass = async (payload: TAcademicClass) => {
-  const result = await prisma.class.create({
+  return await prisma.class.create({
     data: {
       name: payload.name,
-      code: payload.code,
       academicYearId: payload.academicYearId,
     },
   });
-  return result;
 };
 
 const getAllAcademicClasses = async () => {
-  const result = await prisma.class.findMany({
-    include: { sections: true },
+  return await prisma.class.findMany({
+    include: {
+      academicYear: true,
+      sections: true,
+      subjects: true,
+    },
     orderBy: { createdAt: 'asc' },
   });
-  return result;
 };
 
 // --- Academic Section Services ---
 const createAcademicSection = async (payload: TAcademicSection) => {
-  const result = await prisma.section.create({
+  return await prisma.section.create({
     data: payload,
   });
-  return result;
+};
+
+const getAllAcademicSections = async () => {
+  return await prisma.section.findMany({
+    include: {
+      class: true,
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+};
+
+// --- Academic Subject Services ---
+const createAcademicSubject = async (payload: TAcademicSubject) => {
+  return await prisma.subject.create({
+    data: payload,
+  });
+};
+
+const getAllAcademicSubjects = async () => {
+  return await prisma.subject.findMany({
+    include: {
+      class: true,
+      teacher: true,
+    },
+    orderBy: { createdAt: 'asc' },
+  });
 };
 
 export const AcademicService = {
@@ -51,4 +79,7 @@ export const AcademicService = {
   createAcademicClass,
   getAllAcademicClasses,
   createAcademicSection,
+  getAllAcademicSections,
+  createAcademicSubject,
+  getAllAcademicSubjects,
 };

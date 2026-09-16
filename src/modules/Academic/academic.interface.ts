@@ -5,11 +5,19 @@ export type TAcademicYear = {
 
 export type TAcademicClass = {
   name: string;
-  code: string;
   academicYearId: string;
 };
 
 export type TAcademicSection = {
   name: string;
   classId: string;
+};
+
+export type TAcademicSubject = {
+  name: string;
+  code: string;
+  fullMarks?: number;
+  hasMT?: boolean;
+  classId: string;
+  teacherId?: string;
 };
