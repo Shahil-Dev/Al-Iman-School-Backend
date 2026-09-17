@@ -33,10 +33,12 @@ const getAllAcademicClasses = async () => {
   return await prisma.class.findMany({
     include: {
       academicYear: true,
-      sections: true,
-      subjects: true,
+      sections: true,  
+      subjects: true, 
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: {
+      createdAt: 'desc',
+    },
   });
 };
 
@@ -52,7 +54,9 @@ const getAllAcademicSections = async () => {
     include: {
       class: true,
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: {
+      createdAt: 'desc',
+    },
   });
 };
 
@@ -69,7 +73,9 @@ const getAllAcademicSubjects = async () => {
       class: true,
       teacher: true,
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: {
+      createdAt: 'desc',
+    },
   });
 };
 

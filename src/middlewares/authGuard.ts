@@ -2,21 +2,24 @@ import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 
-
 const authGuard = (...requiredRoles: string[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const token = req.headers.authorization;
 
-      // 1.check if the token is present in the request headers
+      // 1. Check token existence
       if (!token) {
-        throw new Error('You are not authorized!');
+        return res.status(401).json({
+          success: false,
+          statusCode: 401,
+          message: 'You are not authorized!',
+        });
       }
 
-      // 2.Remove the "Bearer " prefix from the token if it exists
+      // 2. Extract Bearer token
       const splitToken = token.startsWith('Bearer ') ? token.split(' ')[1] : token;
 
-      // 2.Verify the token
+      // 3. Verify JWT
       const decoded = jwt.verify(
         splitToken,
         process.env.JWT_SECRET || 'secret_key'
@@ -24,30 +27,46 @@ const authGuard = (...requiredRoles: string[]) => {
 
       const { id, role } = decoded;
 
-      // 3.Check if the user exists in the database and is not blocked
+      // 4. Verify user in Database
       const user = await prisma.user.findUnique({
         where: { id },
       });
 
       if (!user) {
-        throw new Error('This user no longer exists!');
+        return res.status(404).json({
+          success: false,
+          statusCode: 404,
+          message: 'This user no longer exists!',
+        });
       }
 
       if (user.isBlocked) {
-        throw new Error('This user is blocked!');
+        return res.status(403).json({
+          success: false,
+          statusCode: 403,
+          message: 'This user is blocked!',
+        });
       }
 
-      // 4. Check role-based access permissions
+      // 5. Check Roles
       if (requiredRoles.length && !requiredRoles.includes(role)) {
-        throw new Error('You do not have permission to perform this action!');
+        return res.status(403).json({
+          success: false,
+          statusCode: 403,
+          message: 'You do not have permission to perform this action!',
+        });
       }
 
-      // 5. Attach the decoded user data to the request object
       (req as any).user = decoded;
 
       next();
     } catch (error) {
-      next(error);
+      return res.status(401).json({
+        success: false,
+        statusCode: 401,
+        message: 'Invalid or expired token',
+        error: (error as Error).message,
+      });
     }
   };
 };

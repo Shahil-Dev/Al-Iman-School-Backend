@@ -88,6 +88,7 @@ const moduleRoutes = [
     path: "/notifications",
     route: MailNotificationRoutes,
   },
+  
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));
