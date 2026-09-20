@@ -14,8 +14,9 @@ import { RoutineRoutes } from "../modules/Routine/routine.route";
 import { DocumentRoutes } from "../modules/Document/document.route";
 import { PayrollRoutes } from "../modules/Payroll/payroll.route";
 import { ParentRoutes } from "../modules/Parent/parent.route";
-import { AdminRoutes } from "../modules/Admin/admin.route"; // <--- Add this
+import { AdminRoutes } from "../modules/Admin/admin.route"; 
 import { MailNotificationRoutes } from "../modules/SMS/sMS.route";
+import { StudentRoutes } from "../modules/Students/students.route";
 
 const router = express.Router();
 
@@ -88,7 +89,10 @@ const moduleRoutes = [
     path: "/notifications",
     route: MailNotificationRoutes,
   },
-  
+  {
+    path: "/students",
+    route: StudentRoutes,
+  }
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));
