@@ -1,4 +1,4 @@
-import { Gender } from '@prisma/client';
+import { Gender } from "@prisma/client";
 
 export type TCreateTeacherPayload = {
   password?: string;
@@ -7,7 +7,12 @@ export type TCreateTeacherPayload = {
     employeeId: string;
     name: string;
     designation: string;
+    department?: string;
+    qualification?: string;
     phone: string;
+    gender: Gender;
+    bloodGroup?: string;
+    nidOrPassport?: string;
     photoUrl?: string;
   };
 };
@@ -20,10 +25,32 @@ export type TCreateStudentPayload = {
     firstName: string;
     lastName: string;
     gender: Gender;
-    dob: string; // "YYYY-MM-DD"
-    phone?: string;
-    address?: string;
+    dob: string | Date;
+    religion?: string;
+    country?: string;
+    bloodGroup?: string;
+    nationality?: string;
+    birthRegNo?: string;
     photoUrl?: string;
+
+    fatherName?: string;
+    fatherOccupation?: string;
+    fatherNid?: string;
+    motherName?: string;
+    motherOccupation?: string;
+    motherNid?: string;
+
+    phone?: string;
+    altPhone?: string;
+    address?: string;
+    permanentAddress?: string;
+
+    passportNo?: string;
+    height?: string;
+    weight?: string;
+    healthConditions?: string[];
+    prevInstituteName?: string;
+
     classId: string;
     sectionId: string;
     rollNo: number;

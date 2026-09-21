@@ -1,6 +1,5 @@
 import bcrypt from "bcrypt";
 import config from "../../config";
-
 import { Role } from "@prisma/client";
 import {
   TCreateParentPayload,
@@ -8,7 +7,8 @@ import {
   TCreateTeacherPayload,
 } from "./user.interface";
 import prisma from "../../lib/prisma";
-// 1. Create Teacher Profile
+
+// 1. Create Teacher Profile (Admin Created)
 const createTeacherIntoDB = async (payload: TCreateTeacherPayload) => {
   const password = await bcrypt.hash(
     payload.password || "123456",
@@ -22,6 +22,7 @@ const createTeacherIntoDB = async (payload: TCreateTeacherPayload) => {
         email: payload.teacher.email,
         password,
         role: Role.TEACHER,
+        isApproved: true, // Direct creation by admin is auto-approved
       },
     });
 
@@ -32,7 +33,12 @@ const createTeacherIntoDB = async (payload: TCreateTeacherPayload) => {
         employeeId: payload.teacher.employeeId,
         name: payload.teacher.name,
         designation: payload.teacher.designation,
+        department: payload.teacher.department,
+        qualification: payload.teacher.qualification,
         phone: payload.teacher.phone,
+        gender: payload.teacher.gender,
+        bloodGroup: payload.teacher.bloodGroup,
+        nidOrPassport: payload.teacher.nidOrPassport,
         photoUrl: payload.teacher.photoUrl,
       },
     });
@@ -42,8 +48,8 @@ const createTeacherIntoDB = async (payload: TCreateTeacherPayload) => {
 
   return result;
 };
-// 2. Create Student Profile
-// 2. Create Student Profile (Updated with Full Fields)
+
+// 2. Create Student Profile (Full Admission Data)
 const createStudentIntoDB = async (payload: TCreateStudentPayload) => {
   const password = await bcrypt.hash(
     payload.password || "123456",
@@ -53,13 +59,14 @@ const createStudentIntoDB = async (payload: TCreateStudentPayload) => {
   const result = await prisma.$transaction(async (transactionClient) => {
     // 1. Create Base User
     const userEmail =
-      payload.student.email || `${payload.student.studentIdNo}@school.com`;
+      payload.student.email || `${payload.student.studentIdNo.toLowerCase()}@school.com`;
 
     const newUser = await transactionClient.user.create({
       data: {
         email: userEmail,
         password,
         role: Role.STUDENT,
+        isApproved: true,
       },
     });
 
@@ -110,8 +117,6 @@ const createStudentIntoDB = async (payload: TCreateStudentPayload) => {
   return result;
 };
 
-
-
 // 3. Create Parent Profile
 const createParentIntoDB = async (payload: TCreateParentPayload) => {
   const password = await bcrypt.hash(
@@ -129,6 +134,7 @@ const createParentIntoDB = async (payload: TCreateParentPayload) => {
         email: userEmail,
         password,
         role: Role.PARENT,
+        isApproved: true,
       },
     });
 
