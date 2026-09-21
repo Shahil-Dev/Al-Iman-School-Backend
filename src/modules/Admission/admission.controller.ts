@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-
 import { AdmissionService } from "./admission.service";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
@@ -10,8 +9,7 @@ const submitAdmission = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: 201,
     success: true,
-    message:
-      "Admission form submitted successfully! Please wait for admin approval.",
+    message: "Admission form submitted successfully! Please wait for admin approval.",
     data: result,
   });
 });
@@ -30,7 +28,8 @@ const trackAdmissionStatus = catchAsync(async (req: Request, res: Response) => {
 
 const approveAdmission = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await AdmissionService.approveAdmissionInDB(id as string);
+  // Passing req.body so admin can send optional sectionId & rollNo
+  const result = await AdmissionService.approveAdmissionInDB(id as string, req.body);
 
   sendResponse(res, {
     statusCode: 200,
@@ -56,7 +55,8 @@ const rejectAdmission = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllApplications = catchAsync(async (req: Request, res: Response) => {
-  const result = await AdmissionService.getAllApplicationsFromDB();
+  // Passing req.query for search & filter
+  const result = await AdmissionService.getAllApplicationsFromDB(req.query);
 
   sendResponse(res, {
     statusCode: 200,

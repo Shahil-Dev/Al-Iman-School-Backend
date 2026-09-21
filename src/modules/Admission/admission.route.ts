@@ -7,7 +7,7 @@ import { AdmissionValidation } from './admission.validation';
 
 const router = express.Router();
 
-// Public Routes (Open for prospective students)
+// Public Routes
 router.post(
   '/apply',
   validateRequest(AdmissionValidation.createAdmissionValidationSchema),
@@ -16,14 +16,22 @@ router.post(
 
 router.get('/track/:identifier', AdmissionController.trackAdmissionStatus);
 
-// Admin Routes (Super Admin Access)
-router.get('/', authGuard(Role.SUPER_ADMIN), AdmissionController.getAllApplications);
+// Admin & Accounts Routes
+router.get(
+  '/',
+  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
+  AdmissionController.getAllApplications
+);
 
-router.patch('/approve/:id', authGuard(Role.SUPER_ADMIN), AdmissionController.approveAdmission);
+router.patch(
+  '/approve/:id',
+  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
+  AdmissionController.approveAdmission
+);
 
 router.patch(
   '/reject/:id',
-  authGuard(Role.SUPER_ADMIN),
+  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
   validateRequest(AdmissionValidation.rejectAdmissionValidationSchema),
   AdmissionController.rejectAdmission
 );
