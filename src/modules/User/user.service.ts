@@ -43,10 +43,11 @@ const createTeacherIntoDB = async (payload: TCreateTeacherPayload) => {
   return result;
 };
 // 2. Create Student Profile
+// 2. Create Student Profile (Updated with Full Fields)
 const createStudentIntoDB = async (payload: TCreateStudentPayload) => {
   const password = await bcrypt.hash(
     payload.password || "123456",
-    Number(config.bcrypt_salt_rounds),
+    Number(config.bcrypt_salt_rounds)
   );
 
   const result = await prisma.$transaction(async (transactionClient) => {
@@ -71,9 +72,31 @@ const createStudentIntoDB = async (payload: TCreateStudentPayload) => {
         lastName: payload.student.lastName,
         gender: payload.student.gender,
         dob: new Date(payload.student.dob),
-        phone: payload.student.phone,
-        address: payload.student.address,
+        religion: payload.student.religion,
+        country: payload.student.country,
+        bloodGroup: payload.student.bloodGroup,
+        nationality: payload.student.nationality,
+        birthRegNo: payload.student.birthRegNo,
         photoUrl: payload.student.photoUrl,
+
+        fatherName: payload.student.fatherName,
+        fatherOccupation: payload.student.fatherOccupation,
+        fatherNid: payload.student.fatherNid,
+        motherName: payload.student.motherName,
+        motherOccupation: payload.student.motherOccupation,
+        motherNid: payload.student.motherNid,
+
+        phone: payload.student.phone,
+        altPhone: payload.student.altPhone,
+        address: payload.student.address,
+        permanentAddress: payload.student.permanentAddress,
+
+        passportNo: payload.student.passportNo,
+        height: payload.student.height,
+        weight: payload.student.weight,
+        healthConditions: payload.student.healthConditions,
+        prevInstituteName: payload.student.prevInstituteName,
+
         classId: payload.student.classId,
         sectionId: payload.student.sectionId,
         rollNo: payload.student.rollNo,
@@ -86,6 +109,9 @@ const createStudentIntoDB = async (payload: TCreateStudentPayload) => {
 
   return result;
 };
+
+
+
 // 3. Create Parent Profile
 const createParentIntoDB = async (payload: TCreateParentPayload) => {
   const password = await bcrypt.hash(

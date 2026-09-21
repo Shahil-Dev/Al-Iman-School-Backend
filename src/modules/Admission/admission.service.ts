@@ -23,6 +23,8 @@ const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
   const result = await prisma.admissionApplication.create({
     data: {
       ...payload,
+      dateOfBirth: new Date(payload.dateOfBirth),
+      passportExpiryDate: payload.passportExpiryDate ? new Date(payload.passportExpiryDate) : undefined,
       applicationNo,
       status: AdmissionStatus.PENDING,
     },
@@ -49,7 +51,7 @@ const trackAdmissionStatusFromDB = async (identifier: string) => {
   return result;
 };
 
-// 3. Approve Admission & Auto Create Student Profile
+// 3. Approve Admission & Auto Create Full Student Profile
 const approveAdmissionInDB = async (
   applicationId: string,
   payload?: { sectionId?: string; rollNo?: number }
@@ -66,7 +68,7 @@ const approveAdmissionInDB = async (
     throw new Error('Application is already approved!');
   }
 
-  // Determine Section: Use provided sectionId or fallback to class default section
+  // Determine Target Section
   let targetSectionId = payload?.sectionId;
   if (!targetSectionId) {
     const defaultSection = await prisma.section.findFirst({
@@ -78,7 +80,7 @@ const approveAdmissionInDB = async (
     targetSectionId = defaultSection.id;
   }
 
-  // Determine Roll Number
+  // Determine Target Roll Number
   let targetRollNo = payload?.rollNo;
   if (!targetRollNo) {
     const lastStudent = await prisma.studentProfile.findFirst({
@@ -100,9 +102,9 @@ const approveAdmissionInDB = async (
   const firstName = nameParts[0];
   const lastName = nameParts.slice(1).join(' ') || 'N/A';
 
-  // Transaction: Create User -> StudentProfile -> Invoice -> Transaction -> Update Application
+  // Transaction: Create Base User -> Complete Student Profile -> Student Invoice -> Payment Ledger -> Update Application
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Create User Account
+    // 1. Create Base User
     const newUser = await tx.user.create({
       data: {
         email: application.email,
@@ -111,7 +113,7 @@ const approveAdmissionInDB = async (
       },
     });
 
-    // 2. Create Student Profile
+    // 2. Create Student Profile with FULL detailed fields
     const studentProfile = await tx.studentProfile.create({
       data: {
         userId: newUser.id,
@@ -119,16 +121,43 @@ const approveAdmissionInDB = async (
         firstName,
         lastName,
         gender: application.gender as Gender,
-        dob: new Date(application.dateOfBirth),
+        dob: application.dateOfBirth,
+        religion: application.religion,
+        country: application.country,
+        bloodGroup: application.bloodGroup,
+        nationality: application.nationality,
+        birthRegNo: application.birthRegNo,
+        photoUrl: application.photoUrl,
+
+        // Parents Information
+        fatherName: application.fatherName,
+        fatherOccupation: application.fatherOccupation,
+        fatherNid: application.fatherNid,
+        motherName: application.motherName,
+        motherOccupation: application.motherOccupation,
+        motherNid: application.motherNid,
+
+        // Contact Information
         phone: application.phone,
-        address: application.address,
+        altPhone: application.altPhone,
+        address: application.presentAddress,
+        permanentAddress: application.permanentAddress,
+
+        // Additional & Medical Information
+        passportNo: application.passportNo,
+        height: application.height,
+        weight: application.weight,
+        healthConditions: application.healthConditions,
+        prevInstituteName: application.prevInstituteName,
+
+        // Academic Assignment
         classId: application.classId,
         sectionId: targetSectionId,
         rollNo: targetRollNo,
       },
     });
 
-    // 3. Create Invoice & Transaction Ledger
+    // 3. Create Invoice Ledger
     const invoice = await tx.studentInvoice.create({
       data: {
         invoiceNo: `INV-${Date.now().toString().slice(-6)}`,
@@ -140,6 +169,7 @@ const approveAdmissionInDB = async (
       },
     });
 
+    // 4. Create Payment Transaction Record
     await tx.paymentTransaction.create({
       data: {
         invoiceId: invoice.id,
@@ -150,7 +180,7 @@ const approveAdmissionInDB = async (
       },
     });
 
-    // 4. Update Application Status to APPROVED
+    // 5. Update Application Status to APPROVED
     const updatedApplication = await tx.admissionApplication.update({
       where: { id: applicationId },
       data: { status: AdmissionStatus.APPROVED },
@@ -183,7 +213,7 @@ const approveAdmissionInDB = async (
   return result;
 };
 
-// 4. Reject Admission ONLY (NO Student Account Creation)
+// 4. Reject Admission
 const rejectAdmissionInDB = async (payload: TRejectAdmissionPayload) => {
   const { applicationId, reason } = payload;
 
@@ -195,7 +225,6 @@ const rejectAdmissionInDB = async (payload: TRejectAdmissionPayload) => {
     throw new Error('Application not found!');
   }
 
-  // Update Status ONLY to REJECTED with Reason
   const result = await prisma.admissionApplication.update({
     where: { id: applicationId },
     data: {
@@ -204,7 +233,6 @@ const rejectAdmissionInDB = async (payload: TRejectAdmissionPayload) => {
     },
   });
 
-  // Safe Email Notification
   try {
     const emailHtml = `
       <h2>Admission Status Update</h2>
@@ -226,17 +254,14 @@ const getAllApplicationsFromDB = async (query: Record<string, any>) => {
   const { status, classId, searchTerm } = query;
   const andConditions: any[] = [];
 
-  // Filter by Strict Status
   if (status && status !== 'ALL') {
     andConditions.push({ status: status as AdmissionStatus });
   }
 
-  // Filter by Class
   if (classId && classId !== 'ALL') {
     andConditions.push({ classId });
   }
 
-  // Search by Name, Email, Phone, TrxID
   if (searchTerm) {
     andConditions.push({
       OR: [
@@ -244,7 +269,9 @@ const getAllApplicationsFromDB = async (query: Record<string, any>) => {
         { email: { contains: searchTerm, mode: 'insensitive' } },
         { phone: { contains: searchTerm, mode: 'insensitive' } },
         { transactionId: { contains: searchTerm, mode: 'insensitive' } },
+        { fatherName: { contains: searchTerm, mode: 'insensitive' } },
         { guardianName: { contains: searchTerm, mode: 'insensitive' } },
+        { birthRegNo: { contains: searchTerm, mode: 'insensitive' } },
       ],
     });
   }

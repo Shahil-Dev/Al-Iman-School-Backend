@@ -1,32 +1,57 @@
 model StudentProfile {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  studentIdNo String   @unique
-  firstName   String
-  lastName    String
-  gender      Gender
-  dob         DateTime
-  phone       String?
-  address     String?
-  photoUrl    String?
+  id                  String          @id @default(uuid())
+  userId              String          @unique
+  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentIdNo         String          @unique
+  firstName           String
+  lastName            String
+  gender              Gender
+  dob                 DateTime
+  religion            String?
+  country             String?         @default("Bangladesh")
+  bloodGroup          String?
+  nationality         String?         @default("Bangladeshi")
+  birthRegNo          String?
+  photoUrl            String?
 
-  classId   String
-  class     Class   @relation(fields: [classId], references: [id])
-  sectionId String
-  section   Section @relation(fields: [sectionId], references: [id])
-  rollNo    Int
+  // Parent Info
+  fatherName          String?
+  fatherOccupation    String?
+  fatherNid           String?
+  motherName          String?
+  motherOccupation    String?
+  motherNid           String?
 
-  parentId String?
-  parent   ParentProfile? @relation(fields: [parentId], references: [id])
+  // Contact Info
+  phone               String?
+  altPhone            String?
+  address             String?         // Present Address
+  permanentAddress    String?
 
-  attendances Attendance[]
-  marks       Mark[]
-  documents   StudentDocument[]
-  invoices    StudentInvoice[]
+  // Additional Details
+  passportNo          String?
+  height              String?
+  weight              String?
+  healthConditions    String[]        // Health conditions array
+  prevInstituteName   String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Academic Assignment
+  classId             String
+  class               Class           @relation(fields: [classId], references: [id])
+  sectionId           String
+  section             Section         @relation(fields: [sectionId], references: [id])
+  rollNo              Int
+
+  parentId            String?
+  parent              ParentProfile?  @relation(fields: [parentId], references: [id])
+
+  attendances         Attendance[]
+  marks               Mark[]
+  documents           StudentDocument[]
+  invoices            StudentInvoice[]
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   @@unique([classId, sectionId, rollNo])
   @@map("student_profiles")

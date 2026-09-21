@@ -1,27 +1,65 @@
 model AdmissionApplication {
-  id            String @id @default(uuid())
-  applicationNo String @unique // e.g., ADM-2026-X891A
-  studentName   String
-  email         String
-  phone         String
-  dateOfBirth   String
-  gender        String
-  address       String
-  guardianName  String
-  guardianPhone String
-  classId       String
-  class         Class  @relation(fields: [classId], references: [id])
+  id                  String          @id @default(uuid())
+  applicationNo       String          @unique
+  studentName         String
+  gender              Gender
+  dateOfBirth         DateTime
+  religion            String
+  country             String          @default("Bangladesh")
+  bloodGroup          String?
+  nationality         String          @default("Bangladeshi")
+  birthRegNo          String?
 
-  // Payment Info
-  paymentMethod PaymentMethod
-  senderPhone   String
-  amount        Float
-  transactionId String          @unique
-  status        AdmissionStatus @default(PENDING)
-  rejectReason  String?
+  // Parent & Guardian Info
+  fatherName          String
+  fatherOccupation    String?
+  fatherNid           String?
+  motherName          String
+  motherOccupation    String?
+  motherNid           String?
+  guardianName        String?
+  guardianOccupation  String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Contact Info
+  phone               String          // SMS Mobile
+  altPhone            String?
+  email               String
+  guardianPhone       String
+  guardianEmail       String?
+  guardianAddress     String?
+
+  // Additional & Health Conditions
+  passportNo          String?
+  passportExpiryDate  DateTime?
+  height              String?
+  weight              String?
+  healthConditions    String[]        // Array of health tags e.g. ["Good Condition", "Need Extra Care"]
+  siblingStudentId    String?
+  admitOtherKids      Boolean         @default(false)
+
+  // Address
+  presentAddress      String
+  permanentAddress    String
+  sameAsPresent       Boolean         @default(false)
+
+  // Previous Education
+  prevInstituteName   String?
+  prevInstituteAddress String?
+  references          String?
+  photoUrl            String?
+
+  // Academic Target & Payment
+  classId             String
+  class               Class           @relation(fields: [classId], references: [id])
+  paymentMethod       PaymentMethod
+  senderPhone         String
+  amount              Float
+  transactionId       String          @unique
+  status              AdmissionStatus @default(PENDING)
+  rejectReason        String?
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   @@map("admission_applications")
 }
