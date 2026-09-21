@@ -4,20 +4,30 @@ import bcrypt from "bcrypt";
 const prisma = new PrismaClient();
 
 async function main() {
-  const hashedPassword = await bcrypt.hash("123456", 12);
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || "admin@school.com";
+  const rawPassword = process.env.SUPER_ADMIN_PASSWORD || "Admin@123456";
 
-  // 1. create Super Admin
+  const hashedPassword = await bcrypt.hash(rawPassword, 12);
+
+  // Create or Update Super Admin Account
   const superAdmin = await prisma.user.upsert({
-    where: { email: "superadmin@school.com" },
-    update: {},
+    where: { email: superAdminEmail },
+    update: {
+      password: hashedPassword,
+      role: Role.SUPER_ADMIN,
+    },
     create: {
-      email: "superadmin@school.com",
+      email: superAdminEmail,
       password: hashedPassword,
       role: Role.SUPER_ADMIN,
     },
   });
 
-  console.log("✅ Super Admin Created:", superAdmin.email);
+  console.log("✅ Super Admin Account Initialized Successfully!");
+  console.log("-----------------------------------------------");
+  console.log(`📧 Email:    ${superAdmin.email}`);
+  console.log(`🔑 Role:     ${superAdmin.role}`);
+  console.log("-----------------------------------------------");
 }
 
 main()
