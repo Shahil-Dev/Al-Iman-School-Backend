@@ -17,6 +17,7 @@ import { ParentRoutes } from "../modules/Parent/parent.route";
 import { AdminRoutes } from "../modules/Admin/admin.route"; 
 import { MailNotificationRoutes } from "../modules/SMS/sMS.route";
 import { StudentRoutes } from "../modules/Students/students.route";
+import { TeacherRoutes } from "../modules/Teacher/teacher.route";
 
 const router = express.Router();
 
@@ -92,6 +93,10 @@ const moduleRoutes = [
   {
     path: "/students",
     route: StudentRoutes,
+  },
+  {
+    path: "/teachers",
+    route: TeacherRoutes,
   }
 ];
 
