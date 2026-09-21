@@ -1,5 +1,4 @@
 import bcrypt from "bcrypt";
-// import jwt, { Secret } from 'jsonwebtoken';
 import { JwtHelpers } from "../../utils/jwtHelpers";
 import { TLoginUser } from "./auth.interface";
 import prisma from "../../lib/prisma";
@@ -28,20 +27,26 @@ const loginUser = async (payload: TLoginUser) => {
     throw new Error("User does not exist!");
   }
 
-  // 2.Check if the user is blocked
+  // 2. Check if the user is blocked
   if (user.isBlocked) {
     throw new Error("This user account has been blocked!");
   }
 
-  // 3.Password match checking
+  // 3. Check if the user account is approved (Pending Teacher / Student Guard)
+  if (!user.isApproved) {
+    throw new Error("Your account is pending Admin Approval! Please wait for confirmation.");
+  }
+
+  // 4. Password match checking
   const isPasswordMatched = await bcrypt.compare(password, user.password);
   if (!isPasswordMatched) {
     throw new Error("Password does not match!");
   }
 
-  // 4.create Access Token
+  // 5. Create Access Token
   const jwtPayload = {
     id: user.id,
+    email: user.email,
     role: user.role,
   };
 
@@ -57,10 +62,46 @@ const loginUser = async (payload: TLoginUser) => {
       id: user.id,
       email: user.email,
       role: user.role,
+      studentProfile: user.studentProfile,
+      teacherProfile: user.teacherProfile,
+      parentProfile: user.parentProfile,
     },
   };
 };
 
+// Get Logged In User Profile (/auth/me)
+const getMyProfileFromDB = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      isApproved: true,
+      isBlocked: true,
+      createdAt: true,
+      studentProfile: {
+        include: {
+          class: true,
+        },
+      },
+      teacherProfile: true,
+      parentProfile: {
+        include: {
+          students: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    throw new Error("User profile not found!");
+  }
+
+  return user;
+};
+
 export const AuthService = {
   loginUser,
+  getMyProfileFromDB,
 };

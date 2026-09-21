@@ -22,13 +22,7 @@ router.get(
     Role.STUDENT,
     Role.PARENT,
   ),
-  (req, res) => {
-    res.status(200).json({
-      success: true,
-      message: "Profile retrieved successfully!",
-      data: (req as any).user,
-    });
-  },
+  AuthController.getMyProfile,
 );
 
 export const AuthRoutes = router;
