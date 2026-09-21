@@ -15,11 +15,13 @@ async function main() {
     update: {
       password: hashedPassword,
       role: Role.SUPER_ADMIN,
+      isApproved: true
     },
     create: {
       email: superAdminEmail,
       password: hashedPassword,
       role: Role.SUPER_ADMIN,
+      isApproved: true
     },
   });
 
