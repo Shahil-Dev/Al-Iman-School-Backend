@@ -5,21 +5,23 @@ import { StudentController } from "./students.controller";
 
 const router = express.Router();
 
+router.post("/", authGuard(Role.SUPER_ADMIN), StudentController.createStudent);
+
 router.get(
   "/",
-  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
+  authGuard(Role.SUPER_ADMIN, Role.TEACHER),
   StudentController.getAllStudents,
 );
 
 router.get(
   "/:id",
-  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
+  authGuard(Role.SUPER_ADMIN, Role.TEACHER),
   StudentController.getSingleStudent,
 );
 
 router.patch(
   "/:id",
-  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
+  authGuard(Role.SUPER_ADMIN),
   StudentController.updateStudent,
 );
 

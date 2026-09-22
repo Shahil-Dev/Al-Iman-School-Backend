@@ -3,6 +3,17 @@ import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import { StudentService } from "./students.service";
 
+const createStudent = catchAsync(async (req: Request, res: Response) => {
+  const result = await StudentService.createStudentIntoDB(req.body);
+
+  sendResponse(res, {
+    statusCode: 201,
+    success: true,
+    message: "Student created successfully!",
+    data: result,
+  });
+});
+
 const getAllStudents = catchAsync(async (req: Request, res: Response) => {
   const result = await StudentService.getAllStudentsFromDB(req.query);
 
@@ -51,6 +62,7 @@ const deleteStudent = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const StudentController = {
+  createStudent,
   getAllStudents,
   getSingleStudent,
   updateStudent,
