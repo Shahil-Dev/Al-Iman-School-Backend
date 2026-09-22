@@ -1,6 +1,6 @@
 import prisma from "../../lib/prisma";
 import { Role } from "@prisma/client";
-import bcrypt from "bcrypt"; // আপনার প্রজেক্টে হ্যাশিং ইউটিলিটি থাকলে তা ব্যবহার করুন
+import bcrypt from "bcrypt";
 
 const registerParentInDB = async (payload: {
   email: string;
@@ -45,7 +45,8 @@ const registerParentInDB = async (payload: {
             id: true,
             email: true,
             role: true,
-            status: true,
+            isApproved: true,
+            isBlocked: true,
           },
         },
       },
@@ -65,7 +66,8 @@ const getAllParentsFromDB = async () => {
           id: true,
           email: true,
           role: true,
-          status: true,
+          isApproved: true,
+          isBlocked: true,
         },
       },
       students: {
@@ -90,7 +92,8 @@ const getSingleParentFromDB = async (id: string) => {
           id: true,
           email: true,
           role: true,
-          status: true,
+          isApproved: true,
+          isBlocked: true,
         },
       },
       students: {
