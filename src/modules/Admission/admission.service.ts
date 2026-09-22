@@ -1,14 +1,15 @@
 import bcrypt from 'bcrypt';
-import { AdmissionStatus, Gender, PaymentStatus, Role } from '@prisma/client';
+import { AdmissionStatus, Gender, Role } from '@prisma/client';
 
 import {
+  TApproveAdmissionPayload,
   TCreateAdmissionPayload,
   TRejectAdmissionPayload,
 } from './admission.interface';
 import prisma from '../../lib/prisma';
 import { sendEmail } from '../../utils/sendEmail';
 
-// 1. Submit Admission Application (Student)
+// 1. Submit Admission Application
 const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
   const existingTrx = await prisma.admissionApplication.findUnique({
     where: { transactionId: payload.transactionId },
@@ -51,10 +52,10 @@ const trackAdmissionStatusFromDB = async (identifier: string) => {
   return result;
 };
 
-// 3. Approve Admission & Auto Create Full Student Profile
+// 3. Approve Admission & Auto Create Student Profile
 const approveAdmissionInDB = async (
   applicationId: string,
-  payload?: { sectionId?: string; rollNo?: number }
+  payload?: TApproveAdmissionPayload
 ) => {
   const application = await prisma.admissionApplication.findUnique({
     where: { id: applicationId },
@@ -94,33 +95,42 @@ const approveAdmissionInDB = async (
   }
 
   const defaultPassword = 'Student@123456';
+  const defaultPin = '123456'; // Default PIN required by StudentProfile schema
   const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-  const studentIdNo = `STU-${Date.now().toString().slice(-6)}`;
+  
+  // Generating Standard Unique IDs according to StudentProfile Schema
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  const currentYear = new Date().getFullYear().toString().slice(-2);
+  const studentCode = `STU-${currentYear}-${randomNum}`; // Unique studentCode
+  const studentIdNo = `ID-${Date.now().toString().slice(-6)}`; // Unique studentIdNo
 
   // Name Parsing
   const nameParts = application.studentName.trim().split(' ');
   const firstName = nameParts[0];
   const lastName = nameParts.slice(1).join(' ') || 'N/A';
 
-  // Transaction: Create Base User -> Complete Student Profile -> Student Invoice -> Payment Ledger -> Update Application
+  // Transaction Execution: User -> Student Profile -> Update Application
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Create Base User
+    // 1. Create Base User with isApproved set to true
     const newUser = await tx.user.create({
       data: {
         email: application.email,
         password: hashedPassword,
         role: Role.STUDENT,
+        isApproved: true, // User is auto-approved upon admission approval
       },
     });
 
-    // 2. Create Student Profile with FULL detailed fields
+    // 2. Create Detailed Student Profile
     const studentProfile = await tx.studentProfile.create({
       data: {
         userId: newUser.id,
-        studentIdNo,
+        studentCode,              // Required in StudentProfile Schema
+        pin: defaultPin,          // Required in StudentProfile Schema
+        studentIdNo,              // Required in StudentProfile Schema
         firstName,
         lastName,
-        gender: application.gender as Gender,
+        gender: application.gender,
         dob: application.dateOfBirth,
         religion: application.religion,
         country: application.country,
@@ -129,7 +139,7 @@ const approveAdmissionInDB = async (
         birthRegNo: application.birthRegNo,
         photoUrl: application.photoUrl,
 
-        // Parents Information
+        // Parent Info
         fatherName: application.fatherName,
         fatherOccupation: application.fatherOccupation,
         fatherNid: application.fatherNid,
@@ -137,13 +147,13 @@ const approveAdmissionInDB = async (
         motherOccupation: application.motherOccupation,
         motherNid: application.motherNid,
 
-        // Contact Information
+        // Contact Info
         phone: application.phone,
         altPhone: application.altPhone,
         address: application.presentAddress,
         permanentAddress: application.permanentAddress,
 
-        // Additional & Medical Information
+        // Additional Details
         passportNo: application.passportNo,
         height: application.height,
         weight: application.weight,
@@ -157,30 +167,7 @@ const approveAdmissionInDB = async (
       },
     });
 
-    // 3. Create Invoice Ledger
-    const invoice = await tx.studentInvoice.create({
-      data: {
-        invoiceNo: `INV-${Date.now().toString().slice(-6)}`,
-        studentId: studentProfile.id,
-        amount: application.amount,
-        paidAmount: application.amount,
-        status: PaymentStatus.PAID,
-        dueDate: new Date(),
-      },
-    });
-
-    // 4. Create Payment Transaction Record
-    await tx.paymentTransaction.create({
-      data: {
-        invoiceId: invoice.id,
-        amount: application.amount,
-        method: application.paymentMethod,
-        transactionId: application.transactionId,
-        status: PaymentStatus.PAID,
-      },
-    });
-
-    // 5. Update Application Status to APPROVED
+    // 3. Update Admission Application Status to APPROVED
     const updatedApplication = await tx.admissionApplication.update({
       where: { id: applicationId },
       data: { status: AdmissionStatus.APPROVED },
@@ -189,21 +176,23 @@ const approveAdmissionInDB = async (
     return { newUser, studentProfile, updatedApplication };
   });
 
-  // Safe Email Notification (Will not crash API if SMTP fails)
+  // Email Notification
   try {
     const emailHtml = `
       <h2>🎉 Congratulations! Admission Approved</h2>
       <p>Dear <b>${application.studentName}</b>,</p>
-      <p>Your admission for <b>Al-Iman School</b> and payment verification (TrxID: ${application.transactionId}) are completed successfully!</p>
+      <p>Your admission for <b>Al-Iman School</b> has been approved successfully!</p>
       <br/>
-      <h4>Your Portal Credentials & Roll Info:</h4>
+      <h4>Your Student Portal Credentials:</h4>
       <ul>
-        <li><b>Student ID:</b> ${studentIdNo}</li>
+        <li><b>Student Code:</b> ${studentCode}</li>
+        <li><b>Student ID No:</b> ${studentIdNo}</li>
+        <li><b>Default PIN:</b> ${defaultPin}</li>
         <li><b>Roll No:</b> ${targetRollNo}</li>
         <li><b>Email:</b> ${application.email}</li>
         <li><b>Default Password:</b> ${defaultPassword}</li>
       </ul>
-      <p>Please log in and update your password immediately.</p>
+      <p>Please log in to the portal and update your password and PIN immediately.</p>
     `;
     await sendEmail(application.email, 'Admission Approved - Al-Iman School', emailHtml);
   } catch (emailErr) {
@@ -239,7 +228,7 @@ const rejectAdmissionInDB = async (payload: TRejectAdmissionPayload) => {
       <p>Dear <b>${application.studentName}</b>,</p>
       <p>We regret to inform you that your admission application (App No: ${application.applicationNo}) could not be approved at this time.</p>
       <p><b>Reason:</b> ${reason}</p>
-      <p>Please contact the administration or submit a new application with correct payment information.</p>
+      <p>Please contact the administration or submit a new application with correct information.</p>
     `;
     await sendEmail(application.email, 'Admission Application Update - Al-Iman School', emailHtml);
   } catch (emailErr) {
@@ -249,7 +238,7 @@ const rejectAdmissionInDB = async (payload: TRejectAdmissionPayload) => {
   return result;
 };
 
-// 5. Get Applications with Strict Dynamic Filters
+// 5. Get Applications with Dynamic Filters
 const getAllApplicationsFromDB = async (query: Record<string, any>) => {
   const { status, classId, searchTerm } = query;
   const andConditions: any[] = [];

@@ -27,7 +27,7 @@ const createAdmissionValidationSchema = z.object({
     phone: z.string({ message: 'Contact / SMS mobile number is required!' }),
     altPhone: z.string().optional(),
     email: z.string().email('Invalid email address!'),
-    guardianPhone: z.string({ message: "Father / Guardian mobile number is required!" }),
+    guardianPhone: z.string({ message: 'Father / Guardian mobile number is required!' }),
     guardianEmail: z.string().email().optional().or(z.literal('')),
     guardianAddress: z.string().optional(),
 

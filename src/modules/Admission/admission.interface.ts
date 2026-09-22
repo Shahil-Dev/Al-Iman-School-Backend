@@ -61,3 +61,8 @@ export type TRejectAdmissionPayload = {
   applicationId: string;
   reason: string;
 };
+
+export type TApproveAdmissionPayload = {
+  sectionId?: string;
+  rollNo?: number;
+};

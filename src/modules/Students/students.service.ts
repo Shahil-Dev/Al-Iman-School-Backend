@@ -1,19 +1,30 @@
 import prisma from "../../lib/prisma";
 import { generateStudentCode, generateStudentPin } from "./student.utils";
 
-/**
- * Create a new student with auto-generated studentCode and PIN
- */
-const createStudentIntoDB = async (payload: any) => {
-  // 1. Generate unique studentCode and PIN
-  const studentCode = await generateStudentCode();
-  const pin = generateStudentPin();
 
-  // 2. Create student profile in database
+/**
+ * Create a new student with auto-generated studentCode, studentIdNo and PIN
+ */
+const createStudentIntoDB = async (payload: ICreateStudentInput) => {
+  // 1. Generate unique studentCode if not provided
+  const studentCode = await generateStudentCode();
+  
+  // 2. Fallback studentIdNo to studentCode if not specified explicitly
+  const studentIdNo = payload.studentIdNo || studentCode;
+  
+  // 3. Generate 6-digit PIN if not provided by admin
+  const pin = payload.pin || generateStudentPin();
+
+  // Parse Date of Birth correctly
+  const dob = new Date(payload.dob);
+
+  // 4. Create student profile in database
   const result = await prisma.studentProfile.create({
     data: {
       ...payload,
+      dob,
       studentCode,
+      studentIdNo,
       pin,
     },
     include: {
@@ -39,6 +50,7 @@ const getAllStudentsFromDB = async (query: Record<string, any>) => {
         { lastName: { contains: searchTerm, mode: "insensitive" } },
         { studentIdNo: { contains: searchTerm, mode: "insensitive" } },
         { studentCode: { contains: searchTerm, mode: "insensitive" } },
+        { phone: { contains: searchTerm, mode: "insensitive" } },
       ],
     });
   }
@@ -76,15 +88,35 @@ const getSingleStudentFromDB = async (id: string) => {
       class: true,
       section: true,
       parent: true,
+      attendances: { take: 30, orderBy: { date: "desc" } },
+      marks: { include: { exam: true, subject: true } },
+      documents: true,
+      invoices: { orderBy: { createdAt: "desc" } },
     },
   });
+
+  if (!result) {
+    throw new Error("Student profile not found!");
+  }
+
   return result;
 };
 
-const updateStudentInDB = async (id: string, payload: Partial<any>) => {
+const updateStudentInDB = async (id: string, payload: Partial<ICreateStudentInput>) => {
+  const isExist = await prisma.studentProfile.findUnique({ where: { id } });
+
+  if (!isExist) {
+    throw new Error("Student profile not found!");
+  }
+
+  const updateData: any = { ...payload };
+  if (payload.dob) {
+    updateData.dob = new Date(payload.dob);
+  }
+
   const result = await prisma.studentProfile.update({
     where: { id },
-    data: payload,
+    data: updateData,
     include: {
       class: true,
       section: true,
@@ -104,7 +136,6 @@ const deleteStudentFromDB = async (id: string) => {
     throw new Error("Student profile not found!");
   }
 
-  // If user account exists, delete user (which cascades/deletes profile based on schema)
   if (student.userId) {
     const result = await prisma.user.delete({
       where: { id: student.userId },
@@ -112,7 +143,6 @@ const deleteStudentFromDB = async (id: string) => {
     return result;
   }
 
-  // If student doesn't have a user account, delete student profile directly
   const result = await prisma.studentProfile.delete({
     where: { id },
   });
