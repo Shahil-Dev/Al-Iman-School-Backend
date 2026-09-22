@@ -17,6 +17,20 @@ router.get(
   ParentController.getChildOverview,
 );
 
+router.get(
+  "/full-access/:studentId",
+  authGuard(Role.PARENT),
+  ParentController.getFullStudentAccess,
+);
+
+router.get("/", authGuard(Role.SUPER_ADMIN), ParentController.getAllParents);
+
+router.get(
+  "/:id",
+  authGuard(Role.SUPER_ADMIN),
+  ParentController.getSingleParent,
+);
+
 router.patch(
   "/assign-student",
   authGuard(Role.SUPER_ADMIN),
@@ -28,9 +42,11 @@ router.patch(
   authGuard(Role.SUPER_ADMIN),
   ParentController.removeStudent,
 );
-router.get(
-  "/full-access/:studentId",
-  authGuard(Role.PARENT),
-  ParentController.getFullStudentAccess,
+
+router.patch(
+  "/:id",
+  authGuard(Role.SUPER_ADMIN, Role.PARENT),
+  ParentController.updateParentProfile,
 );
+
 export const ParentRoutes = router;

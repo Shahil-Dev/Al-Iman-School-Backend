@@ -1,5 +1,60 @@
 import prisma from "../../lib/prisma";
 
+
+const getAllParentsFromDB = async () => {
+  const parents = await prisma.parentProfile.findMany({
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          status: true,
+        },
+      },
+      students: {
+        select: {
+          id: true,
+          name: true,
+          rollNumber: true,
+        },
+      },
+    },
+  });
+
+  return parents;
+};
+
+
+const getSingleParentFromDB = async (id: string) => {
+  const parent = await prisma.parentProfile.findUnique({
+    where: { id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          status: true,
+        },
+      },
+      students: {
+        include: {
+          class: true,
+          section: true,
+        },
+      },
+    },
+  });
+
+  if (!parent) {
+    throw new Error("Parent profile not found!");
+  }
+
+  return parent;
+};
+
+
 const getMyChildrenFromDB = async (parentUserId: string) => {
   const parent = await prisma.parentProfile.findUnique({
     where: { userId: parentUserId },
@@ -19,6 +74,7 @@ const getMyChildrenFromDB = async (parentUserId: string) => {
 
   return parent.students;
 };
+
 
 const getChildOverviewFromDB = async (
   parentUserId: string,
@@ -63,6 +119,7 @@ const getChildOverviewFromDB = async (
   };
 };
 
+
 const assignStudentToParentInDB = async (payload: {
   parentId: string;
   studentId: string;
@@ -88,6 +145,7 @@ const assignStudentToParentInDB = async (payload: {
   return updatedStudent;
 };
 
+
 const removeStudentFromParentInDB = async (studentId: string) => {
   const updatedStudent = await prisma.studentProfile.update({
     where: { id: studentId },
@@ -96,6 +154,7 @@ const removeStudentFromParentInDB = async (studentId: string) => {
 
   return updatedStudent;
 };
+
 
 const validateParentChildRelation = async (
   parentUserId: string,
@@ -118,6 +177,7 @@ const validateParentChildRelation = async (
 
   return parent.students[0];
 };
+
 
 const getFullStudentAccessForParentInDB = async (
   parentUserId: string,
@@ -166,11 +226,40 @@ const getFullStudentAccessForParentInDB = async (
   };
 };
 
+
+const updateParentProfileInDB = async (
+  id: string,
+  payload: Partial<{
+    fatherName: string;
+    motherName: string;
+    phone: string;
+    occupation: string;
+  }>,
+) => {
+  const isExist = await prisma.parentProfile.findUnique({
+    where: { id },
+  });
+
+  if (!isExist) {
+    throw new Error("Parent profile not found!");
+  }
+
+  const result = await prisma.parentProfile.update({
+    where: { id },
+    data: payload,
+  });
+
+  return result;
+};
+
 export const ParentService = {
+  getAllParentsFromDB,
+  getSingleParentFromDB,
   getMyChildrenFromDB,
   getChildOverviewFromDB,
   assignStudentToParentInDB,
   removeStudentFromParentInDB,
   validateParentChildRelation,
   getFullStudentAccessForParentInDB,
+  updateParentProfileInDB,
 };

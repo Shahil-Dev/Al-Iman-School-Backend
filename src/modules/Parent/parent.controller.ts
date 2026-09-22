@@ -3,6 +3,29 @@ import { ParentService } from "./parent.service";
 import sendResponse from "../../utils/sendResponse";
 import catchAsync from "../../utils/catchAsync";
 
+const getAllParents = catchAsync(async (req: Request, res: Response) => {
+  const result = await ParentService.getAllParentsFromDB();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "All parent profiles retrieved successfully!",
+    data: result,
+  });
+});
+
+const getSingleParent = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ParentService.getSingleParentFromDB(id as string);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Parent profile retrieved successfully!",
+    data: result,
+  });
+});
+
 const getMyChildren = catchAsync(async (req: Request, res: Response) => {
   const parentUserId = (req as any).user.id;
   const result = await ParentService.getMyChildrenFromDB(parentUserId);
@@ -73,10 +96,28 @@ const getFullStudentAccess = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateParentProfile = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ParentService.updateParentProfileInDB(
+    id as string,
+    req.body,
+  );
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Parent profile updated successfully!",
+    data: result,
+  });
+});
+
 export const ParentController = {
+  getAllParents,
+  getSingleParent,
   getMyChildren,
   getChildOverview,
   assignStudent,
   removeStudent,
   getFullStudentAccess,
+  updateParentProfile,
 };
