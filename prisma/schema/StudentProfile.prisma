@@ -1,16 +1,23 @@
 model StudentProfile {
-  id                  String          @id @default(uuid())
-  userId              String          @unique
-  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  studentIdNo         String          @unique
+  id                  String            @id @default(uuid())
+  
+  // New Fields for Student Authentication & Identification
+  studentCode         String            @unique // e.g. STU-26-0001
+  pin                 String            // Admin provided default PIN/Password for access
+
+  // Modified: userId is now optional since students won't have individual email/user accounts
+  userId              String?           @unique
+  user                User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  studentIdNo         String            @unique
   firstName           String
   lastName            String
   gender              Gender
   dob                 DateTime
   religion            String?
-  country             String?         @default("Bangladesh")
+  country             String?           @default("Bangladesh")
   bloodGroup          String?
-  nationality         String?         @default("Bangladeshi")
+  nationality         String?           @default("Bangladeshi")
   birthRegNo          String?
   photoUrl            String?
 
@@ -25,33 +32,33 @@ model StudentProfile {
   // Contact Info
   phone               String?
   altPhone            String?
-  address             String?         // Present Address
+  address             String?           // Present Address
   permanentAddress    String?
 
   // Additional Details
   passportNo          String?
   height              String?
   weight              String?
-  healthConditions    String[]        // Health conditions array
+  healthConditions    String[]          // Health conditions array
   prevInstituteName   String?
 
   // Academic Assignment
   classId             String
-  class               Class           @relation(fields: [classId], references: [id])
+  class               Class             @relation(fields: [classId], references: [id])
   sectionId           String
-  section             Section         @relation(fields: [sectionId], references: [id])
+  section             Section           @relation(fields: [sectionId], references: [id])
   rollNo              Int
 
   parentId            String?
-  parent              ParentProfile?  @relation(fields: [parentId], references: [id])
+  parent              ParentProfile?    @relation(fields: [parentId], references: [id])
 
   attendances         Attendance[]
   marks               Mark[]
   documents           StudentDocument[]
   invoices            StudentInvoice[]
 
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@unique([classId, sectionId, rollNo])
   @@map("student_profiles")
