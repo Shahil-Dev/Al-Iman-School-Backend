@@ -3,6 +3,17 @@ import { ParentService } from "./parent.service";
 import sendResponse from "../../utils/sendResponse";
 import catchAsync from "../../utils/catchAsync";
 
+const registerParent = catchAsync(async (req: Request, res: Response) => {
+  const result = await ParentService.registerParentInDB(req.body);
+
+  sendResponse(res, {
+    statusCode: 201,
+    success: true,
+    message: "Parent registered successfully!",
+    data: result,
+  });
+});
+
 const getAllParents = catchAsync(async (req: Request, res: Response) => {
   const result = await ParentService.getAllParentsFromDB();
 
@@ -112,6 +123,7 @@ const updateParentProfile = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const ParentController = {
+  registerParent,
   getAllParents,
   getSingleParent,
   getMyChildren,

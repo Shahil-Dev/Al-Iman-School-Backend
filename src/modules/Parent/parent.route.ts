@@ -5,6 +5,9 @@ import { ParentController } from "./parent.controller";
 
 const router = express.Router();
 
+// Public Route: Parent Self Registration
+router.post("/register", ParentController.registerParent);
+
 router.get(
   "/my-children",
   authGuard(Role.PARENT),

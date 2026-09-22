@@ -1,5 +1,61 @@
 import prisma from "../../lib/prisma";
+import { Role } from "@prisma/client";
+import bcrypt from "bcrypt"; // আপনার প্রজেক্টে হ্যাশিং ইউটিলিটি থাকলে তা ব্যবহার করুন
 
+const registerParentInDB = async (payload: {
+  email: string;
+  password: string;
+  fatherName: string;
+  motherName: string;
+  phone: string;
+  occupation?: string;
+}) => {
+  const isUserExist = await prisma.user.findUnique({
+    where: { email: payload.email },
+  });
+
+  if (isUserExist) {
+    throw new Error("User with this email already exists!");
+  }
+
+  // Password Hashing
+  const hashedPassword = await bcrypt.hash(payload.password, 10);
+
+  // Prisma Transaction for User + ParentProfile creation
+  const result = await prisma.$transaction(async (transactionClient) => {
+    const newUser = await transactionClient.user.create({
+      data: {
+        email: payload.email,
+        password: hashedPassword,
+        role: Role.PARENT,
+      },
+    });
+
+    const newParentProfile = await transactionClient.parentProfile.create({
+      data: {
+        userId: newUser.id,
+        fatherName: payload.fatherName,
+        motherName: payload.motherName,
+        phone: payload.phone,
+        occupation: payload.occupation || "",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    return newParentProfile;
+  });
+
+  return result;
+};
 
 const getAllParentsFromDB = async () => {
   const parents = await prisma.parentProfile.findMany({
@@ -24,7 +80,6 @@ const getAllParentsFromDB = async () => {
 
   return parents;
 };
-
 
 const getSingleParentFromDB = async (id: string) => {
   const parent = await prisma.parentProfile.findUnique({
@@ -54,7 +109,6 @@ const getSingleParentFromDB = async (id: string) => {
   return parent;
 };
 
-
 const getMyChildrenFromDB = async (parentUserId: string) => {
   const parent = await prisma.parentProfile.findUnique({
     where: { userId: parentUserId },
@@ -74,7 +128,6 @@ const getMyChildrenFromDB = async (parentUserId: string) => {
 
   return parent.students;
 };
-
 
 const getChildOverviewFromDB = async (
   parentUserId: string,
@@ -119,7 +172,6 @@ const getChildOverviewFromDB = async (
   };
 };
 
-
 const assignStudentToParentInDB = async (payload: {
   parentId: string;
   studentId: string;
@@ -145,7 +197,6 @@ const assignStudentToParentInDB = async (payload: {
   return updatedStudent;
 };
 
-
 const removeStudentFromParentInDB = async (studentId: string) => {
   const updatedStudent = await prisma.studentProfile.update({
     where: { id: studentId },
@@ -154,7 +205,6 @@ const removeStudentFromParentInDB = async (studentId: string) => {
 
   return updatedStudent;
 };
-
 
 const validateParentChildRelation = async (
   parentUserId: string,
@@ -177,7 +227,6 @@ const validateParentChildRelation = async (
 
   return parent.students[0];
 };
-
 
 const getFullStudentAccessForParentInDB = async (
   parentUserId: string,
@@ -226,7 +275,6 @@ const getFullStudentAccessForParentInDB = async (
   };
 };
 
-
 const updateParentProfileInDB = async (
   id: string,
   payload: Partial<{
@@ -253,6 +301,7 @@ const updateParentProfileInDB = async (
 };
 
 export const ParentService = {
+  registerParentInDB,
   getAllParentsFromDB,
   getSingleParentFromDB,
   getMyChildrenFromDB,
