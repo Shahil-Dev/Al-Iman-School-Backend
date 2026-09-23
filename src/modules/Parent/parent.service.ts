@@ -28,6 +28,7 @@ const registerParentInDB = async (payload: {
         email: payload.email,
         password: hashedPassword,
         role: Role.PARENT,
+        isApproved: true,
       },
     });
 
