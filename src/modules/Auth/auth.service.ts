@@ -34,7 +34,9 @@ const loginUser = async (payload: TLoginUser) => {
 
   // 3. Check if the user account is approved (Pending Teacher / Student Guard)
   if (!user.isApproved) {
-    throw new Error("Your account is pending Admin Approval! Please wait for confirmation.");
+    throw new Error(
+      "Your account is pending Admin Approval! Please wait for confirmation.",
+    );
   }
 
   // 4. Password match checking
@@ -101,7 +103,49 @@ const getMyProfileFromDB = async (userId: string) => {
   return user;
 };
 
+// Change User Password
+const changePasswordInDB = async (
+  userId: string,
+  payload: { oldPassword: string; newPassword: string },
+) => {
+  const { oldPassword, newPassword } = payload;
+
+  // 1. Find the user
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error("User does not exist!");
+  }
+
+  // 2. Verify current password
+  const isPasswordMatched = await bcrypt.compare(oldPassword, user.password);
+  if (!isPasswordMatched) {
+    throw new Error("Old password does not match!");
+  }
+
+  // 3. Hash new password & update
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      password: hashedPassword,
+    },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      updatedAt: true,
+    },
+  });
+
+  return updatedUser;
+};
+
 export const AuthService = {
   loginUser,
   getMyProfileFromDB,
+  changePasswordInDB,
 };

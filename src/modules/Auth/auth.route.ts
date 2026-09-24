@@ -25,4 +25,17 @@ router.get(
   AuthController.getMyProfile,
 );
 
+router.patch(
+  "/change-password",
+  authGuard(
+    Role.SUPER_ADMIN,
+    Role.ACCOUNTS,
+    Role.TEACHER,
+    Role.STUDENT,
+    Role.PARENT,
+  ),
+  validateRequest(AuthValidation.changePasswordValidationSchema),
+  AuthController.changePassword,
+);
+
 export const AuthRoutes = router;

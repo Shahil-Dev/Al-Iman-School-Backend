@@ -1,39 +1,39 @@
-import express from 'express';
-import { Role } from '@prisma/client';
-import authGuard from '../../middlewares/authGuard';
-import validateRequest from '../../middlewares/validateRequest';
-import { AdmissionController } from './admission.controller';
-import { AdmissionValidation } from './admission.validation';
+import express from "express";
+import { Role } from "@prisma/client";
+import authGuard from "../../middlewares/authGuard";
+import validateRequest from "../../middlewares/validateRequest";
+import { AdmissionController } from "./admission.controller";
+import { AdmissionValidation } from "./admission.validation";
 
 const router = express.Router();
 
 // Public Routes
 router.post(
-  '/apply',
+  "/apply",
   validateRequest(AdmissionValidation.createAdmissionValidationSchema),
-  AdmissionController.submitAdmission
-);  
+  AdmissionController.submitAdmission,
+);
 
-router.get('/track/:identifier', AdmissionController.trackAdmissionStatus);
+router.get("/track/:identifier", AdmissionController.trackAdmissionStatus);
 
 // Admin & Accounts Routes
 router.get(
-  '/',
+  "/",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
-  AdmissionController.getAllApplications
+  AdmissionController.getAllApplicationsFromDB,
 );
 
 router.patch(
-  '/approve/:id',
+  "/approve/:id",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
-  AdmissionController.approveAdmission
+  AdmissionController.approveAdmission,
 );
 
 router.patch(
-  '/reject/:id',
+  "/reject/:id",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
   validateRequest(AdmissionValidation.rejectAdmissionValidationSchema),
-  AdmissionController.rejectAdmission
+  AdmissionController.rejectAdmission,
 );
 
 export const AdmissionRoutes = router;
