@@ -12,7 +12,7 @@ router.post(
   '/apply',
   validateRequest(AdmissionValidation.createAdmissionValidationSchema),
   AdmissionController.submitAdmission
-);
+);  
 
 router.get('/track/:identifier', AdmissionController.trackAdmissionStatus);
 

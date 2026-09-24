@@ -1,13 +1,13 @@
-import bcrypt from 'bcrypt';
-import { AdmissionStatus, Gender, Role } from '@prisma/client';
+import bcrypt from "bcrypt";
+import { AdmissionStatus, Gender, Role } from "@prisma/client";
 
 import {
   TApproveAdmissionPayload,
   TCreateAdmissionPayload,
   TRejectAdmissionPayload,
-} from './admission.interface';
-import prisma from '../../lib/prisma';
-import { sendEmail } from '../../utils/sendEmail';
+} from "./admission.interface";
+import prisma from "../../lib/prisma";
+import { sendEmail } from "../../utils/sendEmail";
 
 // 1. Submit Admission Application
 const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
@@ -16,7 +16,7 @@ const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
   });
 
   if (existingTrx) {
-    throw new Error('This Transaction ID (TrxID) has already been used!');
+    throw new Error("This Transaction ID (TrxID) has already been used!");
   }
 
   const applicationNo = `ADM-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -25,7 +25,9 @@ const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
     data: {
       ...payload,
       dateOfBirth: new Date(payload.dateOfBirth),
-      passportExpiryDate: payload.passportExpiryDate ? new Date(payload.passportExpiryDate) : undefined,
+      passportExpiryDate: payload.passportExpiryDate
+        ? new Date(payload.passportExpiryDate)
+        : undefined,
       applicationNo,
       status: AdmissionStatus.PENDING,
     },
@@ -46,7 +48,9 @@ const trackAdmissionStatusFromDB = async (identifier: string) => {
   });
 
   if (!result) {
-    throw new Error('No admission application found with provided credentials!');
+    throw new Error(
+      "No admission application found with provided credentials!",
+    );
   }
 
   return result;
@@ -55,18 +59,18 @@ const trackAdmissionStatusFromDB = async (identifier: string) => {
 // 3. Approve Admission & Auto Create Student Profile
 const approveAdmissionInDB = async (
   applicationId: string,
-  payload?: TApproveAdmissionPayload
+  payload?: TApproveAdmissionPayload,
 ) => {
   const application = await prisma.admissionApplication.findUnique({
     where: { id: applicationId },
   });
 
   if (!application) {
-    throw new Error('Application not found!');
+    throw new Error("Application not found!");
   }
 
   if (application.status === AdmissionStatus.APPROVED) {
-    throw new Error('Application is already approved!');
+    throw new Error("Application is already approved!");
   }
 
   // Determine Target Section
@@ -76,7 +80,9 @@ const approveAdmissionInDB = async (
       where: { classId: application.classId },
     });
     if (!defaultSection) {
-      throw new Error('No section found for this class! Please create a section first.');
+      throw new Error(
+        "No section found for this class! Please create a section first.",
+      );
     }
     targetSectionId = defaultSection.id;
   }
@@ -89,15 +95,15 @@ const approveAdmissionInDB = async (
         classId: application.classId,
         sectionId: targetSectionId,
       },
-      orderBy: { rollNo: 'desc' },
+      orderBy: { rollNo: "desc" },
     });
     targetRollNo = lastStudent ? lastStudent.rollNo + 1 : 1;
   }
 
-  const defaultPassword = 'Student@123456';
-  const defaultPin = '123456'; // Default PIN required by StudentProfile schema
+  const defaultPassword = "Student@123456";
+  const defaultPin = "123456"; // Default PIN required by StudentProfile schema
   const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-  
+
   // Generating Standard Unique IDs according to StudentProfile Schema
   const randomNum = Math.floor(1000 + Math.random() * 9000);
   const currentYear = new Date().getFullYear().toString().slice(-2);
@@ -105,9 +111,9 @@ const approveAdmissionInDB = async (
   const studentIdNo = `ID-${Date.now().toString().slice(-6)}`; // Unique studentIdNo
 
   // Name Parsing
-  const nameParts = application.studentName.trim().split(' ');
+  const nameParts = application.studentName.trim().split(" ");
   const firstName = nameParts[0];
-  const lastName = nameParts.slice(1).join(' ') || 'N/A';
+  const lastName = nameParts.slice(1).join(" ") || "N/A";
 
   // Transaction Execution: User -> Student Profile -> Update Application
   const result = await prisma.$transaction(async (tx) => {
@@ -125,9 +131,9 @@ const approveAdmissionInDB = async (
     const studentProfile = await tx.studentProfile.create({
       data: {
         userId: newUser.id,
-        studentCode,              // Required in StudentProfile Schema
-        pin: defaultPin,          // Required in StudentProfile Schema
-        studentIdNo,              // Required in StudentProfile Schema
+        studentCode, // Required in StudentProfile Schema
+        pin: defaultPin, // Required in StudentProfile Schema
+        studentIdNo, // Required in StudentProfile Schema
         firstName,
         lastName,
         gender: application.gender,
@@ -194,9 +200,13 @@ const approveAdmissionInDB = async (
       </ul>
       <p>Please log in to the portal and update your password and PIN immediately.</p>
     `;
-    await sendEmail(application.email, 'Admission Approved - Al-Iman School', emailHtml);
+    await sendEmail(
+      application.email,
+      "Admission Approved - Al-Iman School",
+      emailHtml,
+    );
   } catch (emailErr) {
-    console.error('Email sending failed (non-fatal):', emailErr);
+    console.error("Email sending failed (non-fatal):", emailErr);
   }
 
   return result;
@@ -211,7 +221,7 @@ const rejectAdmissionInDB = async (payload: TRejectAdmissionPayload) => {
   });
 
   if (!application) {
-    throw new Error('Application not found!');
+    throw new Error("Application not found!");
   }
 
   const result = await prisma.admissionApplication.update({
@@ -230,47 +240,55 @@ const rejectAdmissionInDB = async (payload: TRejectAdmissionPayload) => {
       <p><b>Reason:</b> ${reason}</p>
       <p>Please contact the administration or submit a new application with correct information.</p>
     `;
-    await sendEmail(application.email, 'Admission Application Update - Al-Iman School', emailHtml);
+    await sendEmail(
+      application.email,
+      "Admission Application Update - Al-Iman School",
+      emailHtml,
+    );
   } catch (emailErr) {
-    console.error('Email sending failed (non-fatal):', emailErr);
+    console.error("Email sending failed (non-fatal):", emailErr);
   }
 
   return result;
 };
 
 // 5. Get Applications with Dynamic Filters
-const getAllApplicationsFromDB = async (query: Record<string, any>) => {
+const getAllApplicationsFromDB = async (query: any) => {
   const { status, classId, searchTerm } = query;
   const andConditions: any[] = [];
 
-  if (status && status !== 'ALL') {
-    andConditions.push({ status: status as AdmissionStatus });
+  if (status && status !== "ALL") {
+    andConditions.push({ status });
   }
 
-  if (classId && classId !== 'ALL') {
+  // Class Filter Check
+  if (classId && classId !== "ALL") {
     andConditions.push({ classId });
   }
 
+  // Search Term Check
   if (searchTerm) {
     andConditions.push({
       OR: [
-        { studentName: { contains: searchTerm, mode: 'insensitive' } },
-        { email: { contains: searchTerm, mode: 'insensitive' } },
-        { phone: { contains: searchTerm, mode: 'insensitive' } },
-        { transactionId: { contains: searchTerm, mode: 'insensitive' } },
-        { fatherName: { contains: searchTerm, mode: 'insensitive' } },
-        { guardianName: { contains: searchTerm, mode: 'insensitive' } },
-        { birthRegNo: { contains: searchTerm, mode: 'insensitive' } },
+        { studentName: { contains: searchTerm, mode: "insensitive" } },
+        { phone: { contains: searchTerm, mode: "insensitive" } },
+        { transactionId: { contains: searchTerm, mode: "insensitive" } },
+        { applicationNo: { contains: searchTerm, mode: "insensitive" } },
       ],
     });
   }
 
-  const whereConditions = andConditions.length > 0 ? { AND: andConditions } : {};
+  const whereConditions =
+    andConditions.length > 0 ? { AND: andConditions } : {};
 
   return await prisma.admissionApplication.findMany({
     where: whereConditions,
-    include: { class: true },
-    orderBy: { createdAt: 'desc' },
+    include: {
+      class: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
   });
 };
 
