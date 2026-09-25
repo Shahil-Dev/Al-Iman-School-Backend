@@ -3,6 +3,7 @@ import { sendWhatsAppMessage } from "../../utils/sendWhatsApp";
 import { TCreateAttendancePayload } from "./attendance.interface";
 
 const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
+  console.log("📥 [Service Received] Processing attendance payload...");
   const { date, classId, sectionId, attendances } = payload;
   const attendanceDate = new Date(date);
 
@@ -29,14 +30,17 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
   );
 
   const result = await prisma.$transaction(operations);
+  console.log("💾 [DB Success] Attendance recorded in Database successfully!");
 
   // WhatsApp Alert for ABSENT Students
   const absentStudentIds = attendances
     .filter((item) => item.status === "ABSENT")
     .map((item) => item.studentId);
 
+  console.log(`🚨 [Absent Check] Total Absent Students Found: ${absentStudentIds.length}`);
+
   if (absentStudentIds.length > 0) {
-    // Fetch absent students, including parent contact numbers
+    // 🟢 FIXED HERE: Changed 'studentProfile' to 'student' to match Prisma Schema relation
     const absentStudents = await prisma.studentProfile.findMany({
       where: {
         id: { in: absentStudentIds },
@@ -44,7 +48,7 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
       include: {
         class: true,
         section: true,
-        parent: true, // 👈 Added Parent relation to fetch guardian phone
+        parent: true,
       },
     });
 
@@ -56,16 +60,15 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
 
     // Send WhatsApp Alert
     for (const student of absentStudents) {
-      // Check phone hierarchy: Student Phone -> Alt Phone -> Parent Phone
       const targetPhone =
         student.phone || student.altPhone || student.parent?.phone;
 
       console.log(`🔍 Checking contact for student ${student.firstName}: ${targetPhone}`);
 
       if (targetPhone) {
-        const message = `Dear Parent, Your child *${student.firstName} ${student.lastName}* (Roll: ${student.rollNo}, Class: ${student.class.name}) was marked *ABSENT* today (*${formattedDate}*) at Al-Iman School. Please contact administration if you have any query.`;
+        const message = `Dear Parent, Your child *${student.firstName} ${student.lastName}* (Roll: ${student.rollNo}, Class: ${student.class?.name || "N/A"}) was marked *ABSENT* today (*${formattedDate}*) at Al-Iman School. Please contact administration if you have any query.`;
 
-        // Trigger WhatsApp Notification
+        console.log(`🚀 [Attempting WhatsApp Dispatch] Target: ${targetPhone}`);
         await sendWhatsAppMessage(targetPhone, message);
       } else {
         console.warn(`⚠️ No phone number found for student: ${student.firstName} ${student.lastName}`);

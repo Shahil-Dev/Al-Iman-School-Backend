@@ -4,6 +4,11 @@ import sendResponse from "../../utils/sendResponse";
 import catchAsync from "../../utils/catchAsync";
 
 const takeAttendance = catchAsync(async (req: Request, res: Response) => {
+  console.log("\n==================================================");
+  console.log("📥 [Controller Hit] POST /api/v1/attendances");
+  console.log("📦 Payload Body:", JSON.stringify(req.body, null, 2));
+  console.log("==================================================\n");
+
   const result = await AttendanceService.takeAttendanceIntoDB(req.body);
 
   sendResponse(res, {
@@ -20,7 +25,7 @@ const getSectionAttendance = catchAsync(async (req: Request, res: Response) => {
   const result = await AttendanceService.getSectionAttendanceFromDB(
     classId as string,
     sectionId as string,
-    date as string,
+    date as string
   );
 
   sendResponse(res, {
@@ -36,7 +41,7 @@ const getStudentAttendanceSummary = catchAsync(
     const { studentId } = req.params;
 
     const result = await AttendanceService.getStudentAttendanceSummaryFromDB(
-      studentId as string,
+      studentId as string
     );
 
     sendResponse(res, {
@@ -45,7 +50,7 @@ const getStudentAttendanceSummary = catchAsync(
       message: "Student attendance summary retrieved successfully!",
       data: result,
     });
-  },
+  }
 );
 
 export const AttendanceController = {
