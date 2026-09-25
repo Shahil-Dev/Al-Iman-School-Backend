@@ -21,6 +21,8 @@
     "@bayajidalam/apollo-cli": "^1.0.5",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^5.22.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -30,7 +32,9 @@
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.1.1",
     "pg": "^8.23.0",
+    "pino": "^10.3.1",
     "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -43,6 +47,7 @@
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.6",
+    "@types/qrcode-terminal": "^0.12.2",
     "eslint": "^10.9.1",
     "prettier": "^3.9.6",
     "prisma": "^5.22.0",

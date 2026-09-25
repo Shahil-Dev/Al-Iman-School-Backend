@@ -1,5 +1,6 @@
 import { Server } from 'http';
 import app from './app';
+import { connectToWhatsApp } from './utils/sendWhatsApp';
 
 const PORT = process.env.PORT || 5000;
 let server: Server;
@@ -9,6 +10,7 @@ async function main() {
     server = app.listen(PORT, () => {
       console.log(`🚀 School ERP Server is running on port ${PORT}`);
     });
+    connectToWhatsApp();
   } catch (err) {
     console.error('Failed to start server:', err);
   }
