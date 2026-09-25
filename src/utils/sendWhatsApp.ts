@@ -2,11 +2,12 @@ import path from "path";
 import pino from "pino";
 
 let sock: any = null;
+let isConnecting = false;
 
-/**
- * Initialize Baileys WhatsApp Socket Connection via Pairing Code
- */
 export const connectToWhatsApp = async () => {
+  if (isConnecting) return;
+  isConnecting = true;
+
   try {
     const {
       default: makeWASocket,
@@ -28,9 +29,6 @@ export const connectToWhatsApp = async () => {
       browser: Browsers.ubuntu("Chrome"),
       syncFullHistory: false,
       markOnlineOnConnect: false,
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 60000,
-      keepAliveIntervalMs: 10000,
     });
 
     sock.ev.on("creds.update", saveCreds);
@@ -48,18 +46,18 @@ export const connectToWhatsApp = async () => {
               console.log("\n==================================================");
               console.log(`📱 YOUR WHATSAPP PAIRING CODE: 👉  ${code}  👈`);
               console.log("==================================================\n");
-            } catch (pairingErr: any) {
-              // Ignore if already requested
-            }
-          }, 4000);
+            } catch (pairingErr: any) {}
+          }, 3000);
         }
       }
 
       if (connection === "close") {
+        isConnecting = false;
         const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        // Reconnect only if NOT explicitly logged out or replaced session
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut && statusCode !== 401;
 
-        console.log("WhatsApp Connection closed. Reconnecting:", shouldReconnect);
+        console.log(`WhatsApp Connection Closed (Status: ${statusCode}). Reconnecting: ${shouldReconnect}`);
 
         if (shouldReconnect) {
           setTimeout(() => {
@@ -67,29 +65,27 @@ export const connectToWhatsApp = async () => {
           }, 5000);
         }
       } else if (connection === "open") {
+        isConnecting = false;
         console.log("\n==================================================");
-        console.log("✅ WhatsApp Connected Successfully!");
+        console.log("✅ WhatsApp Connected Successfully & Stable!");
         console.log("==================================================\n");
       }
     });
   } catch (err) {
+    isConnecting = false;
     console.error("Failed to initialize WhatsApp connection:", err);
   }
 };
 
-/**
- * Send WhatsApp Notification to Parent/Student Phone Number
- */
 export const sendWhatsAppMessage = async (
   toPhone: string,
   messageText: string
 ) => {
   try {
-    console.log(`\n🚀 [WhatsApp Process Started] Attempting to send message...`);
-    console.log(`📱 Raw Target Phone: ${toPhone}`);
+    console.log(`\n🚀 [WhatsApp Triggered] Preparing message for ${toPhone}...`);
 
     if (!sock) {
-      console.warn("⚠️ [WhatsApp Error] Socket is not connected or initialized yet!");
+      console.warn("⚠️ [WhatsApp Error] Socket is not ready!");
       return;
     }
 
@@ -101,14 +97,9 @@ export const sendWhatsAppMessage = async (
       formattedPhone = `${formattedPhone}@s.whatsapp.net`;
     }
 
-    console.log(`📞 Formatted JID: ${formattedPhone}`);
-
     const res = await sock.sendMessage(formattedPhone, { text: messageText });
     console.log(`✅ [WhatsApp Success] Message Sent! ID: ${res?.key?.id}\n`);
   } catch (error: any) {
-    console.error(
-      "❌ [WhatsApp Failed]:",
-      error?.message || error
-    );
+    console.error("❌ [WhatsApp Failed]:", error?.message || error);
   }
 };
