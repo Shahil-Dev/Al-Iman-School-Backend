@@ -38,7 +38,6 @@ export const connectToWhatsApp = async () => {
     sock.ev.on("connection.update", async (update: any) => {
       const { connection, lastDisconnect } = update;
 
-      // When connection opens slightly or is initializing
       if (connection === "connecting" && !sock.authState.creds.registered) {
         const phoneNumber = process.env.WHATSAPP_PHONE_NUMBER;
         if (phoneNumber) {
@@ -86,8 +85,11 @@ export const sendWhatsAppMessage = async (
   messageText: string
 ) => {
   try {
+    console.log(`\n🚀 [WhatsApp Process Started] Attempting to send message...`);
+    console.log(`📱 Raw Target Phone: ${toPhone}`);
+
     if (!sock) {
-      console.warn("WhatsApp socket is not initialized yet!");
+      console.warn("⚠️ [WhatsApp Error] Socket is not connected or initialized yet!");
       return;
     }
 
@@ -99,11 +101,13 @@ export const sendWhatsAppMessage = async (
       formattedPhone = `${formattedPhone}@s.whatsapp.net`;
     }
 
-    await sock.sendMessage(formattedPhone, { text: messageText });
-    console.log(`✅ WhatsApp message sent to ${formattedPhone}`);
+    console.log(`📞 Formatted JID: ${formattedPhone}`);
+
+    const res = await sock.sendMessage(formattedPhone, { text: messageText });
+    console.log(`✅ [WhatsApp Success] Message Sent! ID: ${res?.key?.id}\n`);
   } catch (error: any) {
     console.error(
-      "❌ Failed to send WhatsApp message (non-fatal):",
+      "❌ [WhatsApp Failed]:",
       error?.message || error
     );
   }

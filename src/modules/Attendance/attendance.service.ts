@@ -36,7 +36,7 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
     .map((item) => item.studentId);
 
   if (absentStudentIds.length > 0) {
-    // Fetch absent students and parent contact numbers
+    // Fetch absent students, including parent contact numbers
     const absentStudents = await prisma.studentProfile.findMany({
       where: {
         id: { in: absentStudentIds },
@@ -44,6 +44,7 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
       include: {
         class: true,
         section: true,
+        parent: true, // 👈 Added Parent relation to fetch guardian phone
       },
     });
 
@@ -53,13 +54,21 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
       year: "numeric",
     });
 
-    // Send WhatsApp Alert asynchronously
+    // Send WhatsApp Alert
     for (const student of absentStudents) {
-      const targetPhone = student.phone || student.altPhone;
+      // Check phone hierarchy: Student Phone -> Alt Phone -> Parent Phone
+      const targetPhone =
+        student.phone || student.altPhone || student.parent?.phone;
+
+      console.log(`🔍 Checking contact for student ${student.firstName}: ${targetPhone}`);
+
       if (targetPhone) {
         const message = `Dear Parent, Your child *${student.firstName} ${student.lastName}* (Roll: ${student.rollNo}, Class: ${student.class.name}) was marked *ABSENT* today (*${formattedDate}*) at Al-Iman School. Please contact administration if you have any query.`;
-        
-        sendWhatsAppMessage(targetPhone, message);
+
+        // Trigger WhatsApp Notification
+        await sendWhatsAppMessage(targetPhone, message);
+      } else {
+        console.warn(`⚠️ No phone number found for student: ${student.firstName} ${student.lastName}`);
       }
     }
   }
@@ -67,7 +76,11 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
   return result;
 };
 
-const getSectionAttendanceFromDB = async (classId: string, sectionId: string, date: string) => {
+const getSectionAttendanceFromDB = async (
+  classId: string,
+  sectionId: string,
+  date: string
+) => {
   const attendanceDate = new Date(date);
 
   const result = await prisma.attendance.findMany({
