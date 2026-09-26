@@ -1,13 +1,46 @@
 import prisma from "../../lib/prisma";
-import { sendWhatsAppMessage } from "../../utils/sendWhatsApp";
+import axios from "axios";
 import { TCreateAttendancePayload } from "./attendance.interface";
+
+// 🌐 Helper function to trigger WhatsApp via Microservice
+const triggerWhatsAppAlert = async (phone: string, message: string) => {
+  try {
+    const microserviceUrl =
+      process.env.WHATSAPP_MICROSERVICE_URL || "http://localhost:5001";
+    const secretKey = process.env.MICROSERVICE_SECRET_KEY;
+
+    console.log(`🚀 [Microservice Request] Triggering WhatsApp for: ${phone}`);
+
+    const response = await axios.post(
+      `${microserviceUrl}/send-message`,
+      { phone, message },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-secret-key": secretKey,
+        },
+        timeout: 10000, // 10 seconds timeout
+      },
+    );
+
+    console.log(
+      `✅ [Microservice Success] Response:`,
+      response.data?.message || "Dispatched",
+    );
+  } catch (error: any) {
+    console.error(
+      "❌ [Microservice Error] Failed to send WhatsApp alert:",
+      error?.response?.data || error?.message || error,
+    );
+  }
+};
 
 const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
   console.log("📥 [Service Received] Processing attendance payload...");
   const { date, classId, sectionId, attendances } = payload;
   const attendanceDate = new Date(date);
 
-  // Bulk upsert using transaction
+  // 1. Bulk upsert using transaction
   const operations = attendances.map((item) =>
     prisma.attendance.upsert({
       where: {
@@ -26,21 +59,23 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
         sectionId,
         status: item.status,
       },
-    })
+    }),
   );
 
   const result = await prisma.$transaction(operations);
   console.log("💾 [DB Success] Attendance recorded in Database successfully!");
 
-  // WhatsApp Alert for ABSENT Students
+  // 2. WhatsApp Alert for ABSENT Students
   const absentStudentIds = attendances
     .filter((item) => item.status === "ABSENT")
     .map((item) => item.studentId);
 
-  console.log(`🚨 [Absent Check] Total Absent Students Found: ${absentStudentIds.length}`);
+  console.log(
+    `🚨 [Absent Check] Total Absent Students Found: ${absentStudentIds.length}`,
+  );
 
   if (absentStudentIds.length > 0) {
-    // 🟢 FIXED HERE: Changed 'studentProfile' to 'student' to match Prisma Schema relation
+    // Fetch absent students profile with relations
     const absentStudents = await prisma.studentProfile.findMany({
       where: {
         id: { in: absentStudentIds },
@@ -58,20 +93,24 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
       year: "numeric",
     });
 
-    // Send WhatsApp Alert
+    // 3. Dispatch WhatsApp Alert via Microservice
     for (const student of absentStudents) {
       const targetPhone =
         student.phone || student.altPhone || student.parent?.phone;
 
-      console.log(`🔍 Checking contact for student ${student.firstName}: ${targetPhone}`);
+      console.log(
+        `🔍 Checking contact for student ${student.firstName}: ${targetPhone}`,
+      );
 
       if (targetPhone) {
         const message = `Dear Parent, Your child *${student.firstName} ${student.lastName}* (Roll: ${student.rollNo}, Class: ${student.class?.name || "N/A"}) was marked *ABSENT* today (*${formattedDate}*) at Al-Iman School. Please contact administration if you have any query.`;
 
-        console.log(`🚀 [Attempting WhatsApp Dispatch] Target: ${targetPhone}`);
-        await sendWhatsAppMessage(targetPhone, message);
+        // Async call to WhatsApp Microservice
+        triggerWhatsAppAlert(targetPhone, message);
       } else {
-        console.warn(`⚠️ No phone number found for student: ${student.firstName} ${student.lastName}`);
+        console.warn(
+          `⚠️ No phone number found for student: ${student.firstName} ${student.lastName}`,
+        );
       }
     }
   }
@@ -82,7 +121,7 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
 const getSectionAttendanceFromDB = async (
   classId: string,
   sectionId: string,
-  date: string
+  date: string,
 ) => {
   const attendanceDate = new Date(date);
 
