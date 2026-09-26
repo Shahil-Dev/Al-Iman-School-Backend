@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { AdmissionService } from './admission.service';
 import catchAsync from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
-import prisma from '../../lib/prisma';
 
 const submitAdmission = catchAsync(async (req: Request, res: Response) => {
   const result = await AdmissionService.submitAdmissionIntoDB(req.body);
@@ -54,50 +53,22 @@ const rejectAdmission = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-// 5. Get Applications with Dynamic Filters
-const getAllApplicationsFromDB = async (query: any) => {
-  const { status, classId, searchTerm } = query;
-  const andConditions: any[] = [];
+// 🟢 5. Corrected Get All Applications Controller
+const getAllApplications = catchAsync(async (req: Request, res: Response) => {
+  const result = await AdmissionService.getAllApplicationsFromDB(req.query);
 
-  if (status && status !== "ALL") {
-    andConditions.push({ status });
-  }
-
-  // Class Filter Check
-  if (classId && classId !== "ALL") {
-    andConditions.push({ classId });
-  }
-
-  // Search Term Check 
-  if (searchTerm && searchTerm.trim() !== "") {
-    andConditions.push({
-      OR: [
-        { studentName: { contains: searchTerm, mode: "insensitive" } },
-        { phone: { contains: searchTerm, mode: "insensitive" } },
-        { transactionId: { contains: searchTerm, mode: "insensitive" } },
-        { applicationNo: { contains: searchTerm, mode: "insensitive" } },
-      ],
-    });
-  }
-
-  const whereConditions =
-    andConditions.length > 0 ? { AND: andConditions } : {};
-
-  return await prisma.admissionApplication.findMany({
-    where: whereConditions,
-    include: {
-      class: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: 'Admission applications retrieved successfully!',
+    data: result,
   });
-};
+});
 
 export const AdmissionController = {
   submitAdmission,
   trackAdmissionStatus,
   approveAdmission,
   rejectAdmission,
-  getAllApplicationsFromDB,
+  getAllApplications,
 };

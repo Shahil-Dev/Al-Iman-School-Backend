@@ -20,7 +20,7 @@ router.get("/track/:identifier", AdmissionController.trackAdmissionStatus);
 router.get(
   "/",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
-  AdmissionController.getAllApplicationsFromDB,
+  AdmissionController.getAllApplications, 
 );
 
 router.patch(

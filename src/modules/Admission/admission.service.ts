@@ -261,13 +261,11 @@ const getAllApplicationsFromDB = async (query: any) => {
     andConditions.push({ status });
   }
 
-  // Class Filter Check
   if (classId && classId !== "ALL") {
     andConditions.push({ classId });
   }
 
-  // Search Term Check
-  if (searchTerm) {
+  if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== "") {
     andConditions.push({
       OR: [
         { studentName: { contains: searchTerm, mode: "insensitive" } },
