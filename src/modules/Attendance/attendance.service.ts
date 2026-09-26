@@ -2,14 +2,18 @@ import prisma from "../../lib/prisma";
 import axios from "axios";
 import { TCreateAttendancePayload } from "./attendance.interface";
 
-// 🌐 Helper function to trigger WhatsApp via Microservice
+// 🌐 Helper function to trigger WhatsApp via Railway Microservice
 const triggerWhatsAppAlert = async (phone: string, message: string) => {
   try {
-    const microserviceUrl =
-      process.env.WHATSAPP_MICROSERVICE_URL || "http://localhost:5001";
+    const baseUrl =
+      process.env.WHATSAPP_MICROSERVICE_URL ||
+      "https://al-imanwhatsappservice-production.up.railway.app";
+
+    // Remove trailing slash if provided in env
+    const microserviceUrl = baseUrl.replace(/\/$/, "");
     const secretKey = process.env.MICROSERVICE_SECRET_KEY;
 
-    console.log(`🚀 [Microservice Request] Triggering WhatsApp for: ${phone}`);
+    console.log(`🚀 [Microservice Request] Dispatching WhatsApp to: ${phone}`);
 
     const response = await axios.post(
       `${microserviceUrl}/send-message`,
@@ -19,7 +23,7 @@ const triggerWhatsAppAlert = async (phone: string, message: string) => {
           "Content-Type": "application/json",
           "x-secret-key": secretKey,
         },
-        timeout: 10000, // 10 seconds timeout
+        timeout: 12000, // 12 seconds timeout for cross-server latency
       },
     );
 
@@ -93,7 +97,7 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
       year: "numeric",
     });
 
-    // 3. Dispatch WhatsApp Alert via Microservice
+    // 3. Dispatch WhatsApp Alert via Railway Microservice
     for (const student of absentStudents) {
       const targetPhone =
         student.phone || student.altPhone || student.parent?.phone;
