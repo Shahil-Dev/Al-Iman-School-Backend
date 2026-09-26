@@ -14,6 +14,13 @@ router.post(
   MarkController.saveMark
 );
 
+router.post(
+  '/save-bulk-marks',
+  authGuard(Role.SUPER_ADMIN, Role.TEACHER),
+  validateRequest(MarkValidation.saveBulkMarksValidationSchema),
+  MarkController.saveBulkMarks
+);
+
 router.get(
   '/marksheet/:examId/:studentId',
   authGuard(Role.SUPER_ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT),
