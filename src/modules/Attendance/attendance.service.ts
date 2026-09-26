@@ -11,7 +11,8 @@ const triggerWhatsAppAlert = async (phone: string, message: string) => {
 
     // Remove trailing slash if provided in env
     const microserviceUrl = baseUrl.replace(/\/$/, "");
-    const secretKey = process.env.MICROSERVICE_SECRET_KEY;
+    const secretKey =
+      process.env.MICROSERVICE_SECRET_KEY || "AlIman_WhatsApp_Secret_2026_#Secured";
 
     console.log(`🚀 [Microservice Request] Dispatching WhatsApp to: ${phone}`);
 
@@ -24,17 +25,17 @@ const triggerWhatsAppAlert = async (phone: string, message: string) => {
           "x-secret-key": secretKey,
         },
         timeout: 12000, // 12 seconds timeout for cross-server latency
-      },
+      }
     );
 
     console.log(
       `✅ [Microservice Success] Response:`,
-      response.data?.message || "Dispatched",
+      response.data?.message || "Dispatched"
     );
   } catch (error: any) {
     console.error(
       "❌ [Microservice Error] Failed to send WhatsApp alert:",
-      error?.response?.data || error?.message || error,
+      error?.response?.data || error?.message || error
     );
   }
 };
@@ -63,7 +64,7 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
         sectionId,
         status: item.status,
       },
-    }),
+    })
   );
 
   const result = await prisma.$transaction(operations);
@@ -75,7 +76,7 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
     .map((item) => item.studentId);
 
   console.log(
-    `🚨 [Absent Check] Total Absent Students Found: ${absentStudentIds.length}`,
+    `🚨 [Absent Check] Total Absent Students Found: ${absentStudentIds.length}`
   );
 
   if (absentStudentIds.length > 0) {
@@ -97,26 +98,30 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
       year: "numeric",
     });
 
-    // 3. Dispatch WhatsApp Alert via Railway Microservice
-    for (const student of absentStudents) {
+    // 3. Dispatch WhatsApp Alert via Railway Microservice synchronously for Vercel Serverless
+    const whatsappPromises = absentStudents.map((student) => {
       const targetPhone =
         student.phone || student.altPhone || student.parent?.phone;
 
       console.log(
-        `🔍 Checking contact for student ${student.firstName}: ${targetPhone}`,
+        `🔍 Checking contact for student ${student.firstName}: ${targetPhone}`
       );
 
       if (targetPhone) {
         const message = `Dear Parent, Your child *${student.firstName} ${student.lastName}* (Roll: ${student.rollNo}, Class: ${student.class?.name || "N/A"}) was marked *ABSENT* today (*${formattedDate}*) at Al-Iman School. Please contact administration if you have any query.`;
 
-        // Async call to WhatsApp Microservice
-        triggerWhatsAppAlert(targetPhone, message);
+        // Returning the promise so we can await all of them before Vercel terminates the function
+        return triggerWhatsAppAlert(targetPhone, message);
       } else {
         console.warn(
-          `⚠️ No phone number found for student: ${student.firstName} ${student.lastName}`,
+          `⚠️ No phone number found for student: ${student.firstName} ${student.lastName}`
         );
+        return Promise.resolve();
       }
-    }
+    });
+
+    // Wait until all WhatsApp dispatch calls complete
+    await Promise.all(whatsappPromises);
   }
 
   return result;
@@ -125,7 +130,7 @@ const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
 const getSectionAttendanceFromDB = async (
   classId: string,
   sectionId: string,
-  date: string,
+  date: string
 ) => {
   const attendanceDate = new Date(date);
 
