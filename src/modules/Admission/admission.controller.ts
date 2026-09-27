@@ -53,7 +53,6 @@ const rejectAdmission = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-// 🟢 5. Corrected Get All Applications Controller
 const getAllApplications = catchAsync(async (req: Request, res: Response) => {
   const result = await AdmissionService.getAllApplicationsFromDB(req.query);
 

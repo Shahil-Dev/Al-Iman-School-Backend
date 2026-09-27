@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { AdmissionStatus, Gender, Role } from "@prisma/client";
+import { AdmissionStatus, Role } from "@prisma/client";
 
 import {
   TApproveAdmissionPayload,
@@ -81,15 +81,15 @@ const approveAdmissionInDB = async (
     });
     if (!defaultSection) {
       throw new Error(
-        "No section found for this class! Please create a section first.",
+        "No section found for this class! Please create a section first in Academic Management.",
       );
     }
     targetSectionId = defaultSection.id;
   }
 
-  // Determine Target Roll Number
-  let targetRollNo = payload?.rollNo;
-  if (!targetRollNo) {
+  // Determine Target Roll Number (Ensure Integer)
+  let targetRollNo: number = payload?.rollNo ? Number(payload.rollNo) : 0;
+  if (!targetRollNo || isNaN(targetRollNo)) {
     const lastStudent = await prisma.studentProfile.findFirst({
       where: {
         classId: application.classId,
@@ -97,21 +97,21 @@ const approveAdmissionInDB = async (
       },
       orderBy: { rollNo: "desc" },
     });
-    targetRollNo = lastStudent ? lastStudent.rollNo + 1 : 1;
+    targetRollNo = lastStudent ? Number(lastStudent.rollNo) + 1 : 1;
   }
 
   const defaultPassword = "Student@123456";
-  const defaultPin = "123456"; // Default PIN required by StudentProfile schema
+  const defaultPin = "123456"; 
   const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
   // Generating Standard Unique IDs according to StudentProfile Schema
   const randomNum = Math.floor(1000 + Math.random() * 9000);
   const currentYear = new Date().getFullYear().toString().slice(-2);
-  const studentCode = `STU-${currentYear}-${randomNum}`; // Unique studentCode
-  const studentIdNo = `ID-${Date.now().toString().slice(-6)}`; // Unique studentIdNo
+  const studentCode = `STU-${currentYear}-${randomNum}`; 
+  const studentIdNo = `ID-${Date.now().toString().slice(-6)}`; 
 
-  // Name Parsing
-  const nameParts = application.studentName.trim().split(" ");
+  // Name Parsing Safely
+  const nameParts = (application.studentName || "Student").trim().split(" ");
   const firstName = nameParts[0];
   const lastName = nameParts.slice(1).join(" ") || "N/A";
 
@@ -123,7 +123,7 @@ const approveAdmissionInDB = async (
         email: application.email,
         password: hashedPassword,
         role: Role.STUDENT,
-        isApproved: true, // User is auto-approved upon admission approval
+        isApproved: true,
       },
     });
 
@@ -144,7 +144,7 @@ const approveAdmissionInDB = async (
         nationality: application.nationality || "Bangladeshi",
         birthRegNo: application.birthRegNo,
         photoUrl: application.photoUrl,
-    
+
         // Parent Info
         fatherName: application.fatherName,
         fatherOccupation: application.fatherOccupation,
@@ -152,20 +152,20 @@ const approveAdmissionInDB = async (
         motherName: application.motherName,
         motherOccupation: application.motherOccupation,
         motherNid: application.motherNid,
-    
+
         // Contact Info
         phone: application.phone,
         altPhone: application.altPhone,
         address: application.presentAddress,
         permanentAddress: application.permanentAddress,
-    
+
         // Additional Details
         passportNo: application.passportNo,
         height: application.height,
         weight: application.weight,
         healthConditions: application.healthConditions || [],
         prevInstituteName: application.prevInstituteName,
-    
+
         // Academic Assignment
         classId: application.classId,
         sectionId: targetSectionId,
@@ -182,7 +182,7 @@ const approveAdmissionInDB = async (
     return { newUser, studentProfile, updatedApplication };
   });
 
-  // Email Notification
+  // Email Notification (Non-blocking)
   try {
     const emailHtml = `
       <h2>🎉 Congratulations! Admission Approved</h2>
