@@ -16,84 +16,97 @@ const getDashboardAnalyticsFromDB = async () => {
     59,
   );
 
-  const [
-    totalStudents,
-    totalTeachers,
-    totalParents,
-    todayStudentAttendance,
-    monthlyCollectedFees,
-    totalInvoicedFees,
-    pendingPayrolls,
-    pendingReviewsCount,
-    totalDocumentsIssued,
-  ] = await Promise.all([
-    prisma.studentProfile.count(),
-    prisma.teacherProfile.count(),
-    prisma.parentProfile.count(),
-
-    prisma.attendance.groupBy({
-      by: ["status"],
-      where: {
-        date: { gte: today },
-      },
-      _count: { status: true },
-    }),
-
-    prisma.studentInvoice.aggregate({
-      _sum: { paidAmount: true },
-      where: {
-        status: "PAID",
-        updatedAt: { gte: startOfMonth, lte: endOfMonth },
-      },
-    }),
-
-    prisma.studentInvoice.aggregate({
-      _sum: {
-        amount: true,
-        paidAmount: true,
-      },
-      where: {
-        status: { in: ["PENDING", "PARTIAL"] },
-      },
-    }),
-
-    prisma.teacherPayroll.aggregate({
-      _sum: { netSalary: true },
-      _count: { id: true },
-      where: {
-        status: "PENDING",
-      },
-    }),
-
-    prisma.review.count({
-      where: { isApproved: false },
-    }),
-
-    prisma.studentDocument.count(),
-  ]);
-
-  const totalAmount = totalInvoicedFees._sum.amount || 0;
-  const totalPaid = totalInvoicedFees._sum.paidAmount || 0;
-  const totalDueAmount = totalAmount - totalPaid;
-
-  return {
-    overview: {
+  // 🟢 Try-Catch সেফলি প্যারালাল কুয়েরি রান করা
+  try {
+    const [
       totalStudents,
       totalTeachers,
       totalParents,
+      pendingAdmissions,
+      monthlyCollectedFees,
+      totalInvoicedFees,
+      pendingPayrolls,
       pendingReviewsCount,
-      totalDocumentsIssued,
-    },
-    todayAttendance: {
-      students: todayStudentAttendance,
-    },
-    financials: {
-      monthlyCollectedAmount: monthlyCollectedFees._sum.paidAmount || 0,
-      totalDueAmount: totalDueAmount > 0 ? totalDueAmount : 0,
-      pendingPayrollAmount: pendingPayrolls._sum.netSalary || 0,
-      pendingPayrollCount: pendingPayrolls._count.id || 0,
-    },
-  };
+      recentAdmissions,
+    ] = await Promise.all([
+      prisma.studentProfile.count().catch(() => 0),
+      prisma.teacherProfile.count().catch(() => 0),
+      prisma.parentProfile.count().catch(() => 0),
+      prisma.admissionApplication.count({ where: { status: "PENDING" } }).catch(() => 0),
+
+      prisma.studentInvoice
+        .aggregate({
+          _sum: { paidAmount: true },
+          where: {
+            status: "PAID",
+            updatedAt: { gte: startOfMonth, lte: endOfMonth },
+          },
+        })
+        .catch(() => ({ _sum: { paidAmount: 0 } })),
+
+      prisma.studentInvoice
+        .aggregate({
+          _sum: {
+            amount: true,
+            paidAmount: true,
+          },
+          where: {
+            status: { in: ["PENDING", "PARTIAL"] },
+          },
+        })
+        .catch(() => ({ _sum: { amount: 0, paidAmount: 0 } })),
+
+      prisma.teacherPayroll
+        .aggregate({
+          _sum: { netSalary: true },
+          _count: { id: true },
+          where: {
+            status: "PENDING",
+          },
+        })
+        .catch(() => ({ _sum: { netSalary: 0 }, _count: { id: 0 } })),
+
+      prisma.review.count({ where: { isApproved: false } }).catch(() => 0),
+
+      prisma.admissionApplication
+        .findMany({
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            studentName: true,
+            applicationNo: true,
+            createdAt: true,
+            status: true,
+          },
+        })
+        .catch(() => []),
+    ]);
+
+    const totalAmount = totalInvoicedFees._sum?.amount || 0;
+    const totalPaid = totalInvoicedFees._sum?.paidAmount || 0;
+    const totalDueAmount = totalAmount - totalPaid;
+
+    return {
+      overview: {
+        totalStudents,
+        totalTeachers,
+        totalParents,
+        pendingAdmissions,
+        pendingReviewsCount,
+      },
+      financials: {
+        monthlyCollectedAmount: monthlyCollectedFees._sum?.paidAmount || 0,
+        totalDueAmount: totalDueAmount > 0 ? totalDueAmount : 0,
+        pendingPayrollAmount: pendingPayrolls._sum?.netSalary || 0,
+        pendingPayrollCount: pendingPayrolls._count?.id || 0,
+      },
+      recentAdmissions,
+    };
+  } catch (error) {
+    console.error("Error in getDashboardAnalyticsFromDB:", error);
+    throw new Error("Failed to retrieve dashboard analytics from database.");
+  }
 };
 
 const getStudentDueReportFromDB = async () => {
