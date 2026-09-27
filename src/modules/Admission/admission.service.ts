@@ -87,7 +87,7 @@ const approveAdmissionInDB = async (
     targetSectionId = defaultSection.id;
   }
 
-  // Determine Target Roll Number (Ensure Integer)
+  // Determine Target Roll Number (Ensure Integer & prevent unique constraint failure)
   let targetRollNo: number = payload?.rollNo ? Number(payload.rollNo) : 0;
   if (!targetRollNo || isNaN(targetRollNo)) {
     const lastStudent = await prisma.studentProfile.findFirst({
@@ -117,20 +117,26 @@ const approveAdmissionInDB = async (
 
   // Transaction Execution: User -> Student Profile -> Update Application
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Create Base User with isApproved set to true
-    const newUser = await tx.user.create({
-      data: {
-        email: application.email,
-        password: hashedPassword,
-        role: Role.STUDENT,
-        isApproved: true,
-      },
+    // 1. Existing User Check to prevent unique constraint error on email
+    let user = await tx.user.findUnique({
+      where: { email: application.email },
     });
+
+    if (!user) {
+      user = await tx.user.create({
+        data: {
+          email: application.email,
+          password: hashedPassword,
+          role: Role.STUDENT,
+          isApproved: true,
+        },
+      });
+    }
 
     // 2. Create Detailed Student Profile
     const studentProfile = await tx.studentProfile.create({
       data: {
-        userId: newUser.id,
+        userId: user.id,
         studentCode,
         pin: defaultPin,
         studentIdNo,
@@ -179,7 +185,7 @@ const approveAdmissionInDB = async (
       data: { status: AdmissionStatus.APPROVED },
     });
 
-    return { newUser, studentProfile, updatedApplication };
+    return { user, studentProfile, updatedApplication };
   });
 
   // Email Notification (Non-blocking)
