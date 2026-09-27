@@ -131,20 +131,20 @@ const approveAdmissionInDB = async (
     const studentProfile = await tx.studentProfile.create({
       data: {
         userId: newUser.id,
-        studentCode, // Required in StudentProfile Schema
-        pin: defaultPin, // Required in StudentProfile Schema
-        studentIdNo, // Required in StudentProfile Schema
+        studentCode,
+        pin: defaultPin,
+        studentIdNo,
         firstName,
         lastName,
         gender: application.gender,
         dob: application.dateOfBirth,
         religion: application.religion,
-        country: application.country,
+        country: application.country || "Bangladesh",
         bloodGroup: application.bloodGroup,
-        nationality: application.nationality,
+        nationality: application.nationality || "Bangladeshi",
         birthRegNo: application.birthRegNo,
         photoUrl: application.photoUrl,
-
+    
         // Parent Info
         fatherName: application.fatherName,
         fatherOccupation: application.fatherOccupation,
@@ -152,20 +152,20 @@ const approveAdmissionInDB = async (
         motherName: application.motherName,
         motherOccupation: application.motherOccupation,
         motherNid: application.motherNid,
-
+    
         // Contact Info
         phone: application.phone,
         altPhone: application.altPhone,
         address: application.presentAddress,
         permanentAddress: application.permanentAddress,
-
+    
         // Additional Details
         passportNo: application.passportNo,
         height: application.height,
         weight: application.weight,
-        healthConditions: application.healthConditions,
+        healthConditions: application.healthConditions || [],
         prevInstituteName: application.prevInstituteName,
-
+    
         // Academic Assignment
         classId: application.classId,
         sectionId: targetSectionId,
