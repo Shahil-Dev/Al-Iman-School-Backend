@@ -181,8 +181,31 @@ const getStudentInvoicesFromDB = async (studentId: string) => {
   return result;
 };
 
+// 4. Get All Invoices and Payment Transactions for Admin Overview
+const getAllInvoicesFromDB = async () => {
+  const result = await prisma.studentInvoice.findMany({
+    include: {
+      transactions: true,
+      student: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          studentIdNo: true,
+          rollNo: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return result;
+};
+
+
 export const PaymentService = {
   createInvoiceIntoDB,
   processPaymentInDB,
   getStudentInvoicesFromDB,
+  getAllInvoicesFromDB,
 };
