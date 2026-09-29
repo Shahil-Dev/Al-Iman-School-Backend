@@ -122,6 +122,21 @@ const updateParentProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const linkStudent = catchAsync(async (req: Request, res: Response) => {
+  const parentUserId = (req as any).user.id;
+  const result = await ParentService.linkStudentToParentInDB(
+    parentUserId,
+    req.body
+  );
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Student linked to parent successfully!",
+    data: result,
+  });
+});
+
+
 export const ParentController = {
   registerParent,
   getAllParents,
@@ -132,4 +147,5 @@ export const ParentController = {
   removeStudent,
   getFullStudentAccess,
   updateParentProfile,
+  linkStudent,
 };

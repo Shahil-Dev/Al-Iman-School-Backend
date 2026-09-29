@@ -35,6 +35,12 @@ router.get(
 );
 
 router.patch(
+  "/link-student",
+  authGuard(Role.PARENT),
+  ParentController.linkStudent,
+);
+
+router.patch(
   "/assign-student",
   authGuard(Role.SUPER_ADMIN),
   ParentController.assignStudent,
