@@ -58,8 +58,36 @@ const toggleReviewApprovalInDB = async (id: string, isApproved: boolean) => {
   return result;
 };
 
+// 4. Get ALL Reviews (Admin Only - both approved and pending)
+const getAllReviewsForAdminInDB = async () => {
+  const result = await prisma.review.findMany({
+    include: {
+      parent: {
+        select: {
+          fatherName: true,
+          motherName: true,
+          phone: true,
+          user: {
+            select: {
+              email: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return result;
+};
+
+
+
 export const ReviewService = {
   createReviewIntoDB,
   getPublicReviewsFromDB,
   toggleReviewApprovalInDB,
+  getAllReviewsForAdminInDB
 };

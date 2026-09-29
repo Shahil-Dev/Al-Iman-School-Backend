@@ -46,8 +46,23 @@ const toggleReviewApproval = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// 4. Get All Reviews for Admin Approval Dashboard
+const getAllReviewsForAdmin = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await ReviewService.getAllReviewsForAdminInDB();
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "All reviews fetched successfully for admin!",
+      data: result,
+    });
+  },
+);
+
 export const ReviewController = {
   createReview,
   getPublicReviews,
   toggleReviewApproval,
+  getAllReviewsForAdmin,
 };
