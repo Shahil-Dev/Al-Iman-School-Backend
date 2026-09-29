@@ -163,27 +163,32 @@ const getSectionAttendanceFromDB = async (
 };
 
 const getStudentAttendanceSummaryFromDB = async (studentId: string) => {
-  const totalDays = await prisma.attendance.count({
-    where: { studentId },
-  });
+  const [totalDays, presentDays, absentDays, lateDays, logs] =
+    await Promise.all([
+      prisma.attendance.count({ where: { studentId } }),
+      prisma.attendance.count({ where: { studentId, status: "PRESENT" } }),
+      prisma.attendance.count({ where: { studentId, status: "ABSENT" } }),
+      prisma.attendance.count({ where: { studentId, status: "LATE" } }),
+      prisma.attendance.findMany({
+        where: { studentId },
+        orderBy: { date: "desc" },
+        take: 60, // Last 60 days attendance logs
+      }),
+    ]);
 
-  const presentDays = await prisma.attendance.count({
-    where: { studentId, status: "PRESENT" },
-  });
-
-  const absentDays = await prisma.attendance.count({
-    where: { studentId, status: "ABSENT" },
-  });
-
-  const lateDays = await prisma.attendance.count({
-    where: { studentId, status: "LATE" },
-  });
+  const percentage =
+    totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 100;
 
   return {
     totalWorkingDays: totalDays,
     totalPresence: presentDays,
+    presentDays, // Added for frontend match
     totalAbsent: absentDays,
+    absentDays, // Added for frontend match
     totalLate: lateDays,
+    lateDays, // Added for frontend match
+    percentage, // Calculated Percentage
+    logs, // Added detailed daily logs
   };
 };
 
