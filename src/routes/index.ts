@@ -22,82 +22,26 @@ import { TeacherRoutes } from "../modules/Teacher/teacher.route";
 const router = express.Router();
 
 const moduleRoutes = [
-  {
-    path: "/auth",
-    route: AuthRoutes,
-  },
-  {
-    path: "/academic",
-    route: AcademicRoutes,
-  },
-  {
-    path: "/users",
-    route: UserRoutes,
-  },
-  {
-    path: "/subjects",
-    route: SubjectRoutes,
-  },
-  {
-    path: "/marks",
-    route: MarkRoutes,
-  },
-  {
-    path: "/reviews",
-    route: ReviewRoutes,
-  },
-  {
-    path: "/attendances",
-    route: AttendanceRoutes,
-  },
-  {
-    path: "/payments",
-    route: PaymentRoutes,
-  },
-  {
-    path: "/admissions",
-    route: AdmissionRoutes,
-  },
-  {
-    path: "/exams",
-    route: ExamRoutes,
-  },
-  {
-    path: "/notices",
-    route: NoticeRoutes,
-  },
-  {
-    path: "/routines",
-    route: RoutineRoutes,
-  },
-  {
-    path: "/documents",
-    route: DocumentRoutes,
-  },
-  {
-    path: "/payrolls",
-    route: PayrollRoutes,
-  },
-  {
-    path: "/parents",
-    route: ParentRoutes,
-  },
-  {
-    path: "/admin",
-    route: AdminRoutes,
-  },
-  {
-    path: "/notifications",
-    route: MailNotificationRoutes,
-  },
-  {
-    path: "/students",
-    route: StudentRoutes,
-  },
-  {
-    path: "/teachers",
-    route: TeacherRoutes,
-  }
+  { path: "/auth", route: AuthRoutes },
+  { path: "/academic", route: AcademicRoutes },
+  { path: "/users", route: UserRoutes },
+  { path: "/subjects", route: SubjectRoutes },
+  { path: "/marks", route: MarkRoutes },
+  { path: "/reviews", route: ReviewRoutes },
+  { path: "/attendances", route: AttendanceRoutes },
+  { path: "/payments", route: PaymentRoutes },
+  { path: "/admissions", route: AdmissionRoutes },
+  { path: "/exams", route: ExamRoutes },
+  { path: "/notices", route: NoticeRoutes },
+  { path: "/routines", route: RoutineRoutes },
+  { path: "/documents", route: DocumentRoutes },
+  { path: "/payrolls", route: PayrollRoutes },
+  { path: "/payroll", route: PayrollRoutes }, // Fixed: Added Singular path to fix 404
+  { path: "/parents", route: ParentRoutes },
+  { path: "/admin", route: AdminRoutes },
+  { path: "/notifications", route: MailNotificationRoutes },
+  { path: "/students", route: StudentRoutes },
+  { path: "/teachers", route: TeacherRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

@@ -1,5 +1,5 @@
-import { NoticeTarget } from '@prisma/client';
-import prisma from '../../lib/prisma';
+import { NoticeTarget } from "@prisma/client";
+import prisma from "../../lib/prisma";
 
 const createNoticeInDB = async (payload: {
   title: string;
@@ -13,12 +13,20 @@ const createNoticeInDB = async (payload: {
   return result;
 };
 
-const getAllNoticesFromDB = async (targetGroup?: NoticeTarget) => {
-  const whereCondition = targetGroup ? { targetGroup } : {};
-  
+const getAllNoticesFromDB = async (targetGroup?: string) => {
+  const whereCondition: any = {};
+
+  // Fixed: Safe enum check so invalid query string doesn't crash Prisma
+  if (
+    targetGroup &&
+    Object.values(NoticeTarget).includes(targetGroup as NoticeTarget)
+  ) {
+    whereCondition.targetGroup = targetGroup as NoticeTarget;
+  }
+
   const result = await prisma.notice.findMany({
     where: whereCondition,
-    orderBy: { publishedAt: 'desc' },
+    orderBy: { createdAt: "desc" },
   });
   return result;
 };

@@ -11,9 +11,16 @@ router.post(
   ExamController.createExam,
 );
 
+// Fixed: Added Role.PARENT & Role.ADMIN access for exam dropdown/list
 router.get(
   "/",
-  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
+  authGuard(
+    Role.SUPER_ADMIN,
+    Role.ACCOUNTS,
+    Role.TEACHER,
+    Role.PARENT,
+    Role.STUDENT,
+  ),
   ExamController.getAllExams,
 );
 
@@ -25,7 +32,13 @@ router.post(
 
 router.get(
   "/marksheet/:examId/:studentId",
-  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER, Role.STUDENT),
+  authGuard(
+    Role.SUPER_ADMIN,
+    Role.ACCOUNTS,
+    Role.TEACHER,
+    Role.PARENT,
+    Role.STUDENT,
+  ),
   ExamController.getStudentMarksheet,
 );
 

@@ -4,7 +4,8 @@ import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 
 const createExam = catchAsync(async (req: Request, res: Response) => {
-  const result = await ExamService.createExamInDB(req.body);
+  // Fixed method name: createExamIntoDB
+  const result = await ExamService.createExamIntoDB(req.body);
   sendResponse(res, {
     statusCode: 201,
     success: true,
@@ -14,7 +15,8 @@ const createExam = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllExams = catchAsync(async (req: Request, res: Response) => {
-  const result = await ExamService.getAllExamsFromDB();
+  // Fixed: Passing req.query to filter correctly
+  const result = await ExamService.getAllExamsFromDB(req.query);
   sendResponse(res, {
     statusCode: 200,
     success: true,
@@ -24,7 +26,8 @@ const getAllExams = catchAsync(async (req: Request, res: Response) => {
 });
 
 const saveStudentMark = catchAsync(async (req: Request, res: Response) => {
-  const result = await ExamService.saveStudentMarkInDB(req.body);
+  // Fixed method name: saveStudentMarkIntoDB
+  const result = await ExamService.saveStudentMarkIntoDB(req.body);
   sendResponse(res, {
     statusCode: 200,
     success: true,
@@ -37,7 +40,7 @@ const getStudentMarksheet = catchAsync(async (req: Request, res: Response) => {
   const { examId, studentId } = req.params;
   const result = await ExamService.getStudentMarksheetFromDB(
     examId as string,
-    studentId as string,
+    studentId as string
   );
   sendResponse(res, {
     statusCode: 200,
