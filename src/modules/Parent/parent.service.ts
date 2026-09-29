@@ -74,11 +74,17 @@ const getAllParentsFromDB = async () => {
       students: {
         select: {
           id: true,
-          name: true,
-          rollNumber: true,
+          firstName: true,
+          lastName: true,
+          studentIdNo: true,
+          studentCode: true,
+          rollNo: true,
+          class: { select: { id: true, name: true } },
+          section: { select: { id: true, name: true } },
         },
       },
     },
+    orderBy: { createdAt: "desc" },
   });
 
   return parents;

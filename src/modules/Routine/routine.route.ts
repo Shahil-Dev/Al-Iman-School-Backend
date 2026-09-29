@@ -13,7 +13,13 @@ router.post(
 
 router.get(
   "/:classId/:sectionId",
-  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER, Role.STUDENT),
+  authGuard(
+    Role.SUPER_ADMIN,
+    Role.ACCOUNTS,
+    Role.TEACHER,
+    Role.STUDENT,
+    Role.PARENT,
+  ),
   RoutineController.getClassRoutine,
 );
 

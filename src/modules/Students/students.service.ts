@@ -7,21 +7,12 @@ import { ICreateStudentInput } from "./students.interface";
  * Create a new student with auto-generated studentCode, studentIdNo and PIN
  */
 const createStudentIntoDB = async (payload: ICreateStudentInput) => {
-  // 1. Generate unique studentCode if not provided
   const studentCode = payload.studentCode || (await generateStudentCode());
-
-  // 2. Fallback studentIdNo to studentCode if not specified explicitly
   const studentIdNo = payload.studentIdNo || studentCode;
-
-  // 3. Generate 6-digit PIN if not provided by admin
   const pin = payload.pin || generateStudentPin();
-
-  // Parse Date of Birth correctly
   const dob = new Date(payload.dob);
 
-  // Extract relational IDs safely
   const { userId, classId, sectionId, parentId, ...restPayload } = payload;
-
   const studentData: Prisma.StudentProfileUncheckedCreateInput = {
     ...restPayload,
     dob,
@@ -35,7 +26,6 @@ const createStudentIntoDB = async (payload: ICreateStudentInput) => {
     ...(parentId && { parentId }),
   };
 
-  // 4. Create student profile in database
   const result = await prisma.studentProfile.create({
     data: studentData,
     include: {
@@ -45,16 +35,14 @@ const createStudentIntoDB = async (payload: ICreateStudentInput) => {
       parent: true,
     },
   });
-
   return result;
 };
 
 /**
- * Fetch all students with optional filters
+ * Fetch all students with optional filters (including parentId & userId for Security)
  */
 const getAllStudentsFromDB = async (query: Record<string, any>) => {
-  const { searchTerm, classId, sectionId } = query;
-
+  const { searchTerm, classId, sectionId, parentId, userId } = query;
   const andConditions: any[] = [];
 
   // Search Filter
@@ -83,6 +71,16 @@ const getAllStudentsFromDB = async (query: Record<string, any>) => {
     andConditions.push({ sectionId });
   }
 
+  // Parent ID Filter (For Parent Dashboard)
+  if (parentId && parentId !== "undefined") {
+    andConditions.push({ parentId });
+  }
+
+  // User ID Filter (For Student Dashboard)
+  if (userId && userId !== "undefined") {
+    andConditions.push({ userId });
+  }
+
   const whereConditions =
     andConditions.length > 0 ? { AND: andConditions } : {};
 
@@ -96,7 +94,6 @@ const getAllStudentsFromDB = async (query: Record<string, any>) => {
     },
     orderBy: { createdAt: "desc" },
   });
-
   return result;
 };
 
@@ -114,26 +111,21 @@ const getSingleStudentFromDB = async (id: string) => {
       invoices: { orderBy: { createdAt: "desc" } },
     },
   });
-
   if (!result) {
     throw new Error("Student profile not found!");
   }
-
   return result;
 };
 
 const updateStudentInDB = async (id: string, payload: Partial<ICreateStudentInput>) => {
   const isExist = await prisma.studentProfile.findUnique({ where: { id } });
-
   if (!isExist) {
     throw new Error("Student profile not found!");
   }
-
   const updateData: any = { ...payload };
   if (payload.dob) {
     updateData.dob = new Date(payload.dob);
   }
-
   const result = await prisma.studentProfile.update({
     where: { id },
     data: updateData,
@@ -151,22 +143,18 @@ const deleteStudentFromDB = async (id: string) => {
     where: { id },
     select: { userId: true },
   });
-
   if (!student) {
     throw new Error("Student profile not found!");
   }
-
   if (student.userId) {
     const result = await prisma.user.delete({
       where: { id: student.userId },
     });
     return result;
   }
-
   const result = await prisma.studentProfile.delete({
     where: { id },
   });
-
   return result;
 };
 

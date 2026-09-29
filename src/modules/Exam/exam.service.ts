@@ -1,79 +1,76 @@
-import prisma from '../../lib/prisma';
-import { calculateGrade } from './exam.utils';
+import prisma from "../../lib/prisma";
 
-const createExamInDB = async (payload: { name: string; academicYearId: string }) => {
+const createExamIntoDB = async (payload: any) => {
   const result = await prisma.exam.create({
     data: payload,
-    include: {
-      academicYear: true,
-    },
   });
   return result;
 };
 
-const getAllExamsFromDB = async () => {
+const getAllExamsFromDB = async (query: Record<string, any>) => {
+  const { academicYearId } = query;
+  const whereConditions: any = {};
+
+  if (academicYearId && academicYearId !== "undefined") {
+    whereConditions.academicYearId = academicYearId;
+  }
+
   const result = await prisma.exam.findMany({
-    include: {
-      academicYear: true,
-    },
-    orderBy: { createdAt: 'desc' },
+    where: whereConditions,
+    orderBy: { createdAt: "desc" },
   });
   return result;
 };
 
-const saveStudentMarkInDB = async (payload: {
-  examId: string;
-  studentId: string;
-  subjectId: string;
-  fullMarks?: number;
-  mtMarks?: number;
-  terminal: number;
-}) => {
-  const fullMarks = payload.fullMarks || 100;
-  const mtMarks = payload.mtMarks || 0;
-  const terminal = payload.terminal || 0;
+const saveStudentMarkIntoDB = async (payload: any) => {
+  const {
+    studentId,
+    examId,
+    subjectId,
+    fullMarks = 100,
+    mtMarks = 0,
+    terminal = 0,
+    grade = "F",
+    gradePoint = 0.0,
+  } = payload;
 
-  // Total calculation: mtMarks + terminal
-  const totalMarks = mtMarks + terminal;
+  const totalMarks = Number(mtMarks) + Number(terminal);
 
-  // Automatic Grade and GradePoint Calculation
-  const { grade, gradePoint } = calculateGrade(totalMarks, fullMarks);
-
-  const result = await prisma.mark.upsert({
+  const existingMark = await prisma.mark.findFirst({
     where: {
-      examId_studentId_subjectId: {
-        examId: payload.examId,
-        studentId: payload.studentId,
-        subjectId: payload.subjectId,
-      },
-    },
-    update: {
-      fullMarks,
-      mtMarks,
-      terminal,
-      totalMarks,
-      grade,
-      gradePoint,
-    },
-    create: {
-      examId: payload.examId,
-      studentId: payload.studentId,
-      subjectId: payload.subjectId,
-      fullMarks,
-      mtMarks,
-      terminal,
-      totalMarks,
-      grade,
-      gradePoint,
-    },
-    include: {
-      exam: true,
-      student: true,
-      subject: true,
+      examId,
+      studentId,
+      subjectId,
     },
   });
 
-  return result;
+  if (existingMark) {
+    return await prisma.mark.update({
+      where: { id: existingMark.id },
+      data: {
+        fullMarks: Number(fullMarks),
+        mtMarks: Number(mtMarks),
+        terminal: Number(terminal),
+        totalMarks,
+        grade,
+        gradePoint: Number(gradePoint),
+      },
+    });
+  }
+
+  return await prisma.mark.create({
+    data: {
+      examId,
+      studentId,
+      subjectId,
+      fullMarks: Number(fullMarks),
+      mtMarks: Number(mtMarks),
+      terminal: Number(terminal),
+      totalMarks,
+      grade,
+      gradePoint: Number(gradePoint),
+    },
+  });
 };
 
 const getStudentMarksheetFromDB = async (examId: string, studentId: string) => {
@@ -85,41 +82,21 @@ const getStudentMarksheetFromDB = async (examId: string, studentId: string) => {
     include: {
       subject: true,
       exam: true,
-      student: true,
+      student: {
+        include: {
+          class: true,
+          section: true,
+        },
+      },
     },
   });
 
-  if (marks.length === 0) {
-    return { message: 'No marks found for this student in this exam.' };
-  }
-
-  // GPA & Final Result Calculation Logic
-  let totalGradePoints = 0;
-  let isFailed = false;
-
-  marks.forEach((mark) => {
-    if (mark.grade === 'F') {
-      isFailed = true;
-    }
-    totalGradePoints += mark.gradePoint;
-  });
-
-  const totalSubjects = marks.length;
-  const gpa = isFailed ? 0.0 : Number((totalGradePoints / totalSubjects).toFixed(2));
-
-  return {
-    student: marks[0].student,
-    exam: marks[0].exam,
-    subjectMarks: marks,
-    totalSubjects,
-    gpa,
-    isPassed: !isFailed,
-  };
+  return marks;
 };
 
 export const ExamService = {
-  createExamInDB,
+  createExamIntoDB,
   getAllExamsFromDB,
-  saveStudentMarkInDB,
+  saveStudentMarkIntoDB,
   getStudentMarksheetFromDB,
 };

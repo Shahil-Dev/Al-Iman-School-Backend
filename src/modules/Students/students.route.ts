@@ -9,13 +9,13 @@ router.post("/", authGuard(Role.SUPER_ADMIN), StudentController.createStudent);
 
 router.get(
   "/",
-  authGuard(Role.SUPER_ADMIN, Role.TEACHER),
+  authGuard(Role.SUPER_ADMIN, Role.TEACHER, Role.PARENT, Role.STUDENT),
   StudentController.getAllStudents,
 );
 
 router.get(
   "/:id",
-  authGuard(Role.SUPER_ADMIN, Role.TEACHER),
+  authGuard(Role.SUPER_ADMIN, Role.TEACHER, Role.PARENT, Role.STUDENT),
   StudentController.getSingleStudent,
 );
 
