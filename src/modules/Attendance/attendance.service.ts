@@ -1,20 +1,23 @@
-import prisma from "../../lib/prisma";
+import bcrypt from "bcrypt";
 import axios from "axios";
-import { TCreateAttendancePayload } from "./attendance.interface";
+import { AdmissionStatus, Role } from "@prisma/client";
+import prisma from "../../lib/prisma";
+import { sendEmail } from "../../utils/sendEmail";
+import { generateStudentCode, generateStudentPin } from "../Students/student.utils";
+import { TApproveAdmissionPayload, TCreateAdmissionPayload, TRejectAdmissionPayload } from "../Admission/admission.interface";
 
-// 🌐 Helper function to trigger WhatsApp via Railway Microservice
-const triggerWhatsAppAlert = async (phone: string, message: string) => {
+// 🌐 Helper function to send WhatsApp messages via Railway Microservice
+const triggerWhatsAppNotification = async (phone: string, message: string) => {
   try {
     const baseUrl =
       process.env.WHATSAPP_MICROSERVICE_URL ||
       "https://al-imanwhatsappservice-production.up.railway.app";
 
-    // Remove trailing slash if provided in env
     const microserviceUrl = baseUrl.replace(/\/$/, "");
     const secretKey =
       process.env.MICROSERVICE_SECRET_KEY || "AlIman_WhatsApp_Secret_2026_#Secured";
 
-    console.log(`🚀 [Microservice Request] Dispatching WhatsApp to: ${phone}`);
+    console.log(`🚀 [WhatsApp Microservice Request] Dispatching credentials to: ${phone}`);
 
     const response = await axios.post(
       `${microserviceUrl}/send-message`,
@@ -24,176 +27,320 @@ const triggerWhatsAppAlert = async (phone: string, message: string) => {
           "Content-Type": "application/json",
           "x-secret-key": secretKey,
         },
-        timeout: 12000, // 12 seconds timeout for cross-server latency
+        timeout: 12000,
       }
     );
 
-    console.log(
-      `✅ [Microservice Success] Response:`,
-      response.data?.message || "Dispatched"
-    );
+    console.log(`✅ [WhatsApp Success]:`, response.data?.message || "Dispatched");
   } catch (error: any) {
     console.error(
-      "❌ [Microservice Error] Failed to send WhatsApp alert:",
+      "❌ [WhatsApp Microservice Error] Failed to send WhatsApp alert:",
       error?.response?.data || error?.message || error
     );
   }
 };
 
-const takeAttendanceIntoDB = async (payload: TCreateAttendancePayload) => {
-  console.log("📥 [Service Received] Processing attendance payload...");
-  const { date, classId, sectionId, attendances } = payload;
-  const attendanceDate = new Date(date);
+// 1. Submit Admission Application
+const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
+  const existingTrx = await prisma.admissionApplication.findUnique({
+    where: { transactionId: payload.transactionId },
+  });
 
-  // 1. Bulk upsert using transaction
-  const operations = attendances.map((item) =>
-    prisma.attendance.upsert({
-      where: {
-        date_studentId: {
-          date: attendanceDate,
-          studentId: item.studentId,
-        },
-      },
-      update: {
-        status: item.status,
-      },
-      create: {
-        date: attendanceDate,
-        studentId: item.studentId,
-        classId,
-        sectionId,
-        status: item.status,
-      },
-    })
-  );
-
-  const result = await prisma.$transaction(operations);
-  console.log("💾 [DB Success] Attendance recorded in Database successfully!");
-
-  // 2. WhatsApp Alert for ABSENT Students
-  const absentStudentIds = attendances
-    .filter((item) => item.status === "ABSENT")
-    .map((item) => item.studentId);
-
-  console.log(
-    `🚨 [Absent Check] Total Absent Students Found: ${absentStudentIds.length}`
-  );
-
-  if (absentStudentIds.length > 0) {
-    // Fetch absent students profile with relations
-    const absentStudents = await prisma.studentProfile.findMany({
-      where: {
-        id: { in: absentStudentIds },
-      },
-      include: {
-        class: true,
-        section: true,
-        parent: true,
-      },
-    });
-
-    const formattedDate = attendanceDate.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-
-    // 3. Dispatch WhatsApp Alert via Railway Microservice synchronously for Vercel Serverless
-    const whatsappPromises = absentStudents.map((student) => {
-      const targetPhone =
-        student.phone || student.altPhone || student.parent?.phone;
-
-      console.log(
-        `🔍 Checking contact for student ${student.firstName}: ${targetPhone}`
-      );
-
-      if (targetPhone) {
-        const message = `Dear Parent, Your child *${student.firstName} ${student.lastName}* (Roll: ${student.rollNo}, Class: ${student.class?.name || "N/A"}) was marked *ABSENT* today (*${formattedDate}*) at Al-Iman School. Please contact administration if you have any query.`;
-
-        // Returning the promise so we can await all of them before Vercel terminates the function
-        return triggerWhatsAppAlert(targetPhone, message);
-      } else {
-        console.warn(
-          `⚠️ No phone number found for student: ${student.firstName} ${student.lastName}`
-        );
-        return Promise.resolve();
-      }
-    });
-
-    // Wait until all WhatsApp dispatch calls complete
-    await Promise.all(whatsappPromises);
+  if (existingTrx) {
+    throw new Error("This Transaction ID (TrxID) has already been used!");
   }
 
-  return result;
-};
+  const applicationNo = `ADM-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-const getSectionAttendanceFromDB = async (
-  classId: string,
-  sectionId: string,
-  date: string
-) => {
-  const attendanceDate = new Date(date);
-
-  const result = await prisma.attendance.findMany({
-    where: {
-      classId,
-      sectionId,
-      date: attendanceDate,
-    },
-    include: {
-      student: {
-        select: {
-          id: true,
-          studentIdNo: true,
-          rollNo: true,
-          firstName: true,
-          lastName: true,
-          gender: true,
-        },
-      },
-    },
-    orderBy: {
-      student: {
-        rollNo: "asc",
-      },
+  const result = await prisma.admissionApplication.create({
+    data: {
+      ...payload,
+      dateOfBirth: new Date(payload.dateOfBirth),
+      passportExpiryDate: payload.passportExpiryDate
+        ? new Date(payload.passportExpiryDate)
+        : undefined,
+      applicationNo,
+      status: AdmissionStatus.PENDING,
     },
   });
 
   return result;
 };
 
-const getStudentAttendanceSummaryFromDB = async (studentId: string) => {
-  const [totalDays, presentDays, absentDays, lateDays, logs] =
-    await Promise.all([
-      prisma.attendance.count({ where: { studentId } }),
-      prisma.attendance.count({ where: { studentId, status: "PRESENT" } }),
-      prisma.attendance.count({ where: { studentId, status: "ABSENT" } }),
-      prisma.attendance.count({ where: { studentId, status: "LATE" } }),
-      prisma.attendance.findMany({
-        where: { studentId },
-        orderBy: { date: "desc" },
-        take: 60, // Last 60 days attendance logs
-      }),
-    ]);
+// 2. Track Application Status
+const trackAdmissionStatusFromDB = async (identifier: string) => {
+  const result = await prisma.admissionApplication.findFirst({
+    where: {
+      OR: [{ applicationNo: identifier }, { email: identifier }],
+    },
+    include: {
+      class: true,
+    },
+  });
 
-  const percentage =
-    totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 100;
+  if (!result) {
+    throw new Error(
+      "No admission application found with provided credentials!",
+    );
+  }
 
-  return {
-    totalWorkingDays: totalDays,
-    totalPresence: presentDays,
-    presentDays, // Added for frontend match
-    totalAbsent: absentDays,
-    absentDays, // Added for frontend match
-    totalLate: lateDays,
-    lateDays, // Added for frontend match
-    percentage, // Calculated Percentage
-    logs, // Added detailed daily logs
-  };
+  return result;
 };
 
-export const AttendanceService = {
-  takeAttendanceIntoDB,
-  getSectionAttendanceFromDB,
-  getStudentAttendanceSummaryFromDB,
+// 3. Approve Admission & Auto Create Student Profile
+const approveAdmissionInDB = async (
+  applicationId: string,
+  payload?: TApproveAdmissionPayload,
+) => {
+  const application = await prisma.admissionApplication.findUnique({
+    where: { id: applicationId },
+  });
+
+  if (!application) {
+    throw new Error("Application not found!");
+  }
+
+  if (application.status === AdmissionStatus.APPROVED) {
+    throw new Error("Application is already approved!");
+  }
+
+  // Determine Target Section
+  let targetSectionId = payload?.sectionId;
+  if (!targetSectionId) {
+    const defaultSection = await prisma.section.findFirst({
+      where: { classId: application.classId },
+    });
+    if (!defaultSection) {
+      throw new Error(
+        "No section found for this class! Please create a section first in Academic Management.",
+      );
+    }
+    targetSectionId = defaultSection.id;
+  }
+
+  // Determine Target Roll Number
+  let targetRollNo: number = payload?.rollNo ? Number(payload.rollNo) : 0;
+  if (!targetRollNo || isNaN(targetRollNo)) {
+    const lastStudent = await prisma.studentProfile.findFirst({
+      where: {
+        classId: application.classId,
+        sectionId: targetSectionId,
+      },
+      orderBy: { rollNo: "desc" },
+    });
+    targetRollNo = lastStudent ? Number(lastStudent.rollNo) + 1 : 1;
+  }
+
+  // 🔑 Auto-generate Dynamic Unique Student Code and Dynamic 6-Digit PIN
+  const studentCode = await generateStudentCode(); // e.g. STU-26-0001
+  const defaultPin = generateStudentPin();          // e.g. Dynamic 6-digit PIN like 849201
+  const defaultPassword = `Student@${defaultPin}`;
+  const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+  const studentIdNo = `ID-${Date.now().toString().slice(-6)}`;
+
+  // Name Parsing Safely
+  const nameParts = (application.studentName || "Student").trim().split(" ");
+  const firstName = nameParts[0];
+  const lastName = nameParts.slice(1).join(" ") || "N/A";
+
+  // Transaction Execution: User -> Student Profile -> Update Application
+  const result = await prisma.$transaction(async (tx) => {
+    let user = await tx.user.findUnique({
+      where: { email: application.email },
+    });
+
+    if (!user) {
+      user = await tx.user.create({
+        data: {
+          email: application.email,
+          password: hashedPassword,
+          role: Role.STUDENT,
+          isApproved: true,
+        },
+      });
+    }
+
+    const studentProfile = await tx.studentProfile.create({
+      data: {
+        userId: user.id,
+        studentCode,
+        pin: defaultPin,
+        studentIdNo,
+        firstName,
+        lastName,
+        gender: application.gender,
+        dob: application.dateOfBirth,
+        religion: application.religion,
+        country: application.country || "Bangladesh",
+        bloodGroup: application.bloodGroup,
+        nationality: application.nationality || "Bangladeshi",
+        birthRegNo: application.birthRegNo,
+        photoUrl: application.photoUrl,
+
+        // Parent Info
+        fatherName: application.fatherName,
+        fatherOccupation: application.fatherOccupation,
+        fatherNid: application.fatherNid,
+        motherName: application.motherName,
+        motherOccupation: application.motherOccupation,
+        motherNid: application.motherNid,
+
+        // Contact Info
+        phone: application.phone,
+        altPhone: application.altPhone,
+        address: application.presentAddress,
+        permanentAddress: application.permanentAddress,
+
+        // Additional Details
+        passportNo: application.passportNo,
+        height: application.height,
+        weight: application.weight,
+        healthConditions: application.healthConditions || [],
+        prevInstituteName: application.prevInstituteName,
+
+        // Academic Assignment
+        classId: application.classId,
+        sectionId: targetSectionId,
+        rollNo: targetRollNo,
+      },
+    });
+
+    const updatedApplication = await tx.admissionApplication.update({
+      where: { id: applicationId },
+      data: { status: AdmissionStatus.APPROVED },
+    });
+
+    return { user, studentProfile, updatedApplication };
+  });
+
+  // -------------------------------------------------------------
+  // 📲 DUAL NOTIFICATION DISPATCH (WhatsApp + Email Fallback)
+  // -------------------------------------------------------------
+  
+  // 1. WhatsApp Dispatch (Target phone -> Applicant's Phone)
+  const targetPhone = application.phone || application.altPhone;
+  if (targetPhone) {
+    const waMessage = `🎉 *Congratulations! Admission Approved*\n\nDear Parent/Student,\nYour admission application for *${application.studentName}* at *Al-Iman School* has been approved!\n\n🔑 *Student Login Access Credentials:*\n• *Student Code:* ${studentCode}\n• *Security PIN:* ${defaultPin}\n• *Roll No:* ${targetRollNo}\n\nPlease visit our portal and log in using your *Student Code* and *PIN*.`;
+    
+    // Trigger in background synchronously before Serverless termination
+    await triggerWhatsAppNotification(targetPhone, waMessage);
+  }
+
+  // 2. Email Fallback Notification (Non-blocking catch)
+  try {
+    const emailHtml = `
+      <h2>🎉 Congratulations! Admission Approved</h2>
+      <p>Dear <b>${application.studentName}</b>,</p>
+      <p>Your admission for <b>Al-Iman School</b> has been approved successfully!</p>
+      <br/>
+      <h4>Your Student Portal Credentials:</h4>
+      <ul>
+        <li><b>Student Code:</b> ${studentCode}</li>
+        <li><b>Student ID No:</b> ${studentIdNo}</li>
+        <li><b>Security PIN:</b> ${defaultPin}</li>
+        <li><b>Roll No:</b> ${targetRollNo}</li>
+        <li><b>Email:</b> ${application.email}</li>
+      </ul>
+      <p>Please log in to the student portal using your <b>Student Code</b> and <b>Security PIN</b>.</p>
+    `;
+    await sendEmail(
+      application.email,
+      "Admission Approved - Al-Iman School",
+      emailHtml,
+    );
+  } catch (emailErr) {
+    console.error("Email sending failed (non-fatal):", emailErr);
+  }
+
+  return result;
+};
+
+// 4. Reject Admission
+const rejectAdmissionInDB = async (payload: TRejectAdmissionPayload) => {
+  const { applicationId, reason } = payload;
+
+  const application = await prisma.admissionApplication.findUnique({
+    where: { id: applicationId },
+  });
+
+  if (!application) {
+    throw new Error("Application not found!");
+  }
+
+  const result = await prisma.admissionApplication.update({
+    where: { id: applicationId },
+    data: {
+      status: AdmissionStatus.REJECTED,
+      rejectReason: reason,
+    },
+  });
+
+  // Dual Notification for Rejection
+  const targetPhone = application.phone || application.altPhone;
+  if (targetPhone) {
+    const waMessage = `Dear Parent/Student,\nWe regret to inform you that the admission application for *${application.studentName}* (App No: ${application.applicationNo}) was not approved at this time.\n\n*Reason:* ${reason}\n\nPlease contact administration for queries.`;
+    await triggerWhatsAppNotification(targetPhone, waMessage);
+  }
+
+  try {
+    const emailHtml = `
+      <h2>Admission Status Update</h2>
+      <p>Dear <b>${application.studentName}</b>,</p>
+      <p>We regret to inform you that your admission application (App No: ${application.applicationNo}) could not be approved at this time.</p>
+      <p><b>Reason:</b> ${reason}</p>
+      <p>Please contact the administration or submit a new application with correct information.</p>
+    `;
+    await sendEmail(
+      application.email,
+      "Admission Application Update - Al-Iman School",
+      emailHtml,
+    );
+  } catch (emailErr) {
+    console.error("Email sending failed (non-fatal):", emailErr);
+  }
+
+  return result;
+};
+
+// 5. Get Applications with Dynamic Filters
+const getAllApplicationsFromDB = async (query: any) => {
+  const { status, classId, searchTerm } = query;
+  const andConditions: any[] = [];
+
+  if (status && status !== "ALL") {
+    andConditions.push({ status });
+  }
+  if (classId && classId !== "ALL") {
+    andConditions.push({ classId });
+  }
+  if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== "") {
+    andConditions.push({
+      OR: [
+        { studentName: { contains: searchTerm, mode: "insensitive" } },
+        { phone: { contains: searchTerm, mode: "insensitive" } },
+        { transactionId: { contains: searchTerm, mode: "insensitive" } },
+        { applicationNo: { contains: searchTerm, mode: "insensitive" } },
+      ],
+    });
+  }
+  const whereConditions =
+    andConditions.length > 0 ? { AND: andConditions } : {};
+
+  return await prisma.admissionApplication.findMany({
+    where: whereConditions,
+    include: {
+      class: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
+export const AdmissionService = {
+  submitAdmissionIntoDB,
+  trackAdmissionStatusFromDB,
+  approveAdmissionInDB,
+  rejectAdmissionInDB,
+  getAllApplicationsFromDB,
 };
