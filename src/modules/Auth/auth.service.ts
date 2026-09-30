@@ -6,12 +6,14 @@ import prisma from "../../lib/prisma";
 const loginUser = async (payload: TLoginUser) => {
   const { email, password } = payload;
 
-  // 1. Find the user by email, student ID, employee ID, or phone number
+  // 1. Find the user by Email, Student Code (e.g. STU-26-6358), Student ID, Phone Number, Teacher ID, or Parent Phone
   const user = await prisma.user.findFirst({
     where: {
       OR: [
         { email: email },
+        { studentProfile: { studentCode: email } },
         { studentProfile: { studentIdNo: email } },
+        { studentProfile: { phone: email } },
         { teacherProfile: { employeeId: email } },
         { parentProfile: { phone: email } },
       ],
@@ -39,8 +41,9 @@ const loginUser = async (payload: TLoginUser) => {
     );
   }
 
-  // 4. Password match checking
+  // 4. Password / PIN match checking
   const isPasswordMatched = await bcrypt.compare(password, user.password);
+
   if (!isPasswordMatched) {
     throw new Error("Password does not match!");
   }

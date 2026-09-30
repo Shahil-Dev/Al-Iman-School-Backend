@@ -3,8 +3,15 @@ import axios from "axios";
 import { AdmissionStatus, Role } from "@prisma/client";
 import prisma from "../../lib/prisma";
 import { sendEmail } from "../../utils/sendEmail";
-import { generateStudentCode, generateStudentPin } from "../Students/student.utils";
-import { TApproveAdmissionPayload, TCreateAdmissionPayload, TRejectAdmissionPayload } from "../Admission/admission.interface";
+import {
+  generateStudentCode,
+  generateStudentPin,
+} from "../Students/student.utils";
+import {
+  TApproveAdmissionPayload,
+  TCreateAdmissionPayload,
+  TRejectAdmissionPayload,
+} from "../Admission/admission.interface";
 
 // 🌐 Helper function to send WhatsApp messages via Railway Microservice
 const triggerWhatsAppNotification = async (phone: string, message: string) => {
@@ -15,9 +22,12 @@ const triggerWhatsAppNotification = async (phone: string, message: string) => {
 
     const microserviceUrl = baseUrl.replace(/\/$/, "");
     const secretKey =
-      process.env.MICROSERVICE_SECRET_KEY || "AlIman_WhatsApp_Secret_2026_#Secured";
+      process.env.MICROSERVICE_SECRET_KEY ||
+      "AlIman_WhatsApp_Secret_2026_#Secured";
 
-    console.log(`🚀 [WhatsApp Microservice Request] Dispatching credentials to: ${phone}`);
+    console.log(
+      `🚀 [WhatsApp Microservice Request] Dispatching credentials to: ${phone}`,
+    );
 
     const response = await axios.post(
       `${microserviceUrl}/send-message`,
@@ -28,14 +38,17 @@ const triggerWhatsAppNotification = async (phone: string, message: string) => {
           "x-secret-key": secretKey,
         },
         timeout: 12000,
-      }
+      },
     );
 
-    console.log(`✅ [WhatsApp Success]:`, response.data?.message || "Dispatched");
+    console.log(
+      `✅ [WhatsApp Success]:`,
+      response.data?.message || "Dispatched",
+    );
   } catch (error: any) {
     console.error(
       "❌ [WhatsApp Microservice Error] Failed to send WhatsApp alert:",
-      error?.response?.data || error?.message || error
+      error?.response?.data || error?.message || error,
     );
   }
 };
@@ -131,11 +144,15 @@ const approveAdmissionInDB = async (
     targetRollNo = lastStudent ? Number(lastStudent.rollNo) + 1 : 1;
   }
 
-  // 🔑 Auto-generate Dynamic Unique Student Code and Dynamic 6-Digit PIN
-  const studentCode = await generateStudentCode(); // e.g. STU-26-0001
-  const defaultPin = generateStudentPin();          // e.g. Dynamic 6-digit PIN like 849201
-  const defaultPassword = `Student@${defaultPin}`;
-  const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+  // 🔴 FIX 1: Generate Dynamic 6-Digit PIN
+  const dynamicPin = Math.floor(100000 + Math.random() * 900000).toString();
+  // 🔴 FIX 2: Hash the dynamic PIN directly so Student can log in using this PIN
+  const hashedPassword = await bcrypt.hash(dynamicPin, 10);
+
+  // Generating Standard Unique IDs
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  const currentYear = new Date().getFullYear().toString().slice(-2);
+  const studentCode = `STU-${currentYear}-${randomNum}`;
   const studentIdNo = `ID-${Date.now().toString().slice(-6)}`;
 
   // Name Parsing Safely
@@ -153,18 +170,25 @@ const approveAdmissionInDB = async (
       user = await tx.user.create({
         data: {
           email: application.email,
-          password: hashedPassword,
+          password: hashedPassword, // Store hashed PIN
           role: Role.STUDENT,
           isApproved: true,
         },
       });
+    } else {
+      // If user exists, update password to new hashed PIN
+      user = await tx.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword, isApproved: true },
+      });
     }
 
+    // Create Detailed Student Profile
     const studentProfile = await tx.studentProfile.create({
       data: {
         userId: user.id,
         studentCode,
-        pin: defaultPin,
+        pin: dynamicPin, // Store dynamic 6-digit PIN in profile
         studentIdNo,
         firstName,
         lastName,
@@ -176,29 +200,21 @@ const approveAdmissionInDB = async (
         nationality: application.nationality || "Bangladeshi",
         birthRegNo: application.birthRegNo,
         photoUrl: application.photoUrl,
-
-        // Parent Info
         fatherName: application.fatherName,
         fatherOccupation: application.fatherOccupation,
         fatherNid: application.fatherNid,
         motherName: application.motherName,
         motherOccupation: application.motherOccupation,
         motherNid: application.motherNid,
-
-        // Contact Info
         phone: application.phone,
         altPhone: application.altPhone,
         address: application.presentAddress,
         permanentAddress: application.permanentAddress,
-
-        // Additional Details
         passportNo: application.passportNo,
         height: application.height,
         weight: application.weight,
         healthConditions: application.healthConditions || [],
         prevInstituteName: application.prevInstituteName,
-
-        // Academic Assignment
         classId: application.classId,
         sectionId: targetSectionId,
         rollNo: targetRollNo,
@@ -213,20 +229,41 @@ const approveAdmissionInDB = async (
     return { user, studentProfile, updatedApplication };
   });
 
-  // -------------------------------------------------------------
-  // 📲 DUAL NOTIFICATION DISPATCH (WhatsApp + Email Fallback)
-  // -------------------------------------------------------------
-  
-  // 1. WhatsApp Dispatch (Target phone -> Applicant's Phone)
-  const targetPhone = application.phone || application.altPhone;
-  if (targetPhone) {
-    const waMessage = `🎉 *Congratulations! Admission Approved*\n\nDear Parent/Student,\nYour admission application for *${application.studentName}* at *Al-Iman School* has been approved!\n\n🔑 *Student Login Access Credentials:*\n• *Student Code:* ${studentCode}\n• *Security PIN:* ${defaultPin}\n• *Roll No:* ${targetRollNo}\n\nPlease visit our portal and log in using your *Student Code* and *PIN*.`;
-    
-    // Trigger in background synchronously before Serverless termination
-    await triggerWhatsAppNotification(targetPhone, waMessage);
+  // 🔴 FIX 3: Send WhatsApp Message via Railway Microservice (Non-blocking)
+  try {
+    const rawPhone = application.phone || "";
+    let cleanPhone = rawPhone.replace(/\D/g, "");
+    if (cleanPhone.startsWith("0")) {
+      cleanPhone = `88${cleanPhone}`;
+    }
+
+    const waMessage = `আসসালামু আলাইকুম ${application.studentName},\nআল-ঈমান ইসলামিক স্কুলে আপনার ভর্তি আবেদন সফলভাবে মঞ্জুর করা হয়েছে।\n\n📌 আপনার পোর্টালে লগইন তথ্য:\n- স্টুডেন্ট কোড: ${studentCode}\n- অ্যাক্সেস পিন (PIN): ${dynamicPin}\n- রোল নম্বর: ${targetRollNo}\n\nলগইন করুন: https://al-iman-school.vercel.app/login`;
+
+    await axios.post(
+      process.env.WHATSAPP_SERVICE_URL ||
+        "https://your-railway-whatsapp.railway.app/send-message",
+      {
+        phone: cleanPhone,
+        message: waMessage,
+      },
+      {
+        headers: {
+          "x-secret-key":
+            process.env.MICROSERVICE_SECRET_KEY ||
+            "AlIman_WhatsApp_Secret_2026_#Secured",
+        },
+        timeout: 10000,
+      },
+    );
+    console.log(`✅ [WhatsApp Sent] Message dispatched to ${cleanPhone}`);
+  } catch (waErr: any) {
+    console.error(
+      "WhatsApp sending failed (non-fatal):",
+      waErr?.message || waErr,
+    );
   }
 
-  // 2. Email Fallback Notification (Non-blocking catch)
+  // Send Email Notification
   try {
     const emailHtml = `
       <h2>🎉 Congratulations! Admission Approved</h2>
@@ -237,11 +274,11 @@ const approveAdmissionInDB = async (
       <ul>
         <li><b>Student Code:</b> ${studentCode}</li>
         <li><b>Student ID No:</b> ${studentIdNo}</li>
-        <li><b>Security PIN:</b> ${defaultPin}</li>
+        <li><b>Access PIN:</b> ${dynamicPin}</li>
         <li><b>Roll No:</b> ${targetRollNo}</li>
         <li><b>Email:</b> ${application.email}</li>
       </ul>
-      <p>Please log in to the student portal using your <b>Student Code</b> and <b>Security PIN</b>.</p>
+      <p>Log in using your Email or Student Code and PIN: ${dynamicPin}</p>
     `;
     await sendEmail(
       application.email,
@@ -313,7 +350,11 @@ const getAllApplicationsFromDB = async (query: any) => {
   if (classId && classId !== "ALL") {
     andConditions.push({ classId });
   }
-  if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== "") {
+  if (
+    searchTerm &&
+    typeof searchTerm === "string" &&
+    searchTerm.trim() !== ""
+  ) {
     andConditions.push({
       OR: [
         { studentName: { contains: searchTerm, mode: "insensitive" } },
