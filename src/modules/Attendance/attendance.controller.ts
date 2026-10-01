@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AttendanceService } from "./attendance.service";
 import sendResponse from "../../utils/sendResponse";
 import catchAsync from "../../utils/catchAsync";
+import { AttendanceService } from "./attendance.service";
 
 const takeAttendance = catchAsync(async (req: Request, res: Response) => {
   console.log("\n==================================================");
