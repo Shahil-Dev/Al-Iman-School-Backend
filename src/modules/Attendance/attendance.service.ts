@@ -13,6 +13,17 @@ export interface ITakeAttendancePayload {
   attendances: ISingleAttendanceInput[];
 }
 
+// Helper to format BD Phone Numbers cleanly for WhatsApp
+const formatBDPhone = (phone: string): string => {
+  let clean = phone.replace(/\D/g, ""); // strip non-digits
+  if (clean.startsWith("0")) {
+    clean = `88${clean}`;
+  } else if (!clean.startsWith("88") && clean.length === 10) {
+    clean = `88${clean}`;
+  }
+  return clean;
+};
+
 // 1. Take / Update Bulk Attendance into DB & Trigger WhatsApp Alerts for ABSENT Students
 const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
   const { date, classId, sectionId, attendances } = payload;
@@ -44,11 +55,13 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
 
   // 🔴 Trigger WhatsApp Dispatch for ABSENT Students
   const absentStudentIds = attendances
-    .filter((item) => item.status === "ABSENT")
+    .filter((item) => item.status && item.status.toUpperCase() === "ABSENT")
     .map((item) => item.studentId);
 
+  console.log(`📡 [Attendance Processing] Total Absent Students Found: ${absentStudentIds.length}`);
+
   if (absentStudentIds.length > 0) {
-    // Background execution to protect DB performance
+    // Non-blocking async background execution
     (async () => {
       try {
         const absentStudents = await prisma.studentProfile.findMany({
@@ -58,52 +71,62 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
           include: {
             class: true,
             section: true,
-            parentProfile: true,
+            parent: true,
           },
         });
 
-        const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL;
+        const rawBaseUrl = process.env.WHATSAPP_MICROSERVICE_URL || "";
+        const microserviceUrl = rawBaseUrl.replace(/\/+$/, ""); // Remove trailing slash
         const secretKey = process.env.MICROSERVICE_SECRET_KEY;
 
         if (!microserviceUrl) {
-          console.error("⚠️ WHATSAPP_MICROSERVICE_URL missing in .env!");
+          console.error("❌ WHATSAPP_MICROSERVICE_URL missing in .env!");
           return;
         }
 
         for (const student of absentStudents as any[]) {
-          // Safe phone number extraction from parentProfile or student fields
-          const parentPhone =
-            student.parentProfile?.phone ||
-            student.guardianPhone ||
-            student.phone;
+          // Check parent phone or student phone fallback
+          const rawPhone =
+            student.parent?.phone ||
+            student.phone ||
+            student.guardianPhone;
 
-          if (parentPhone) {
-            const studentName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
-            const className = student.class?.name || "N/A";
-            const sectionName = student.section?.name || "";
+          if (!rawPhone) {
+            console.warn(`⚠️ [WhatsApp Warning] No phone number found for student: ${student.firstName} ${student.lastName} (ID: ${student.id})`);
+            continue;
+          }
 
-            const message = `السلام عليكم,\nসম্মানিত অভিভাবক, আপনার সন্তান ${studentName} (শ্রেণি: ${className} ${sectionName}, রোল: ${student.rollNo}) আজ (${date}) আল-ঈমান স্কুলে অনুপস্থিত রয়েছে।\n\n- আল-ঈমান স্কুল ও কলেজ কর্তৃপক্ষ।`;
+          const formattedPhone = formatBDPhone(rawPhone);
+          const studentName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
+          const className = student.class?.name || "N/A";
+          const rollNo = student.rollNo || "N/A";
 
-            try {
-              await axios.post(
-                `${microserviceUrl}/send-message`,
-                {
-                  phone: parentPhone,
-                  message,
+          // 💬 Custom Exact Message requested
+          const message = `Dear Parent, Your child ${studentName} (Roll: ${rollNo}, Class: ${className}) was marked ABSENT today (${date}) at Al-Iman School. Please contact administration if you have any query.`;
+
+          console.log(`🛫 [Dispatching WA Alert] To: ${formattedPhone} | Student: ${studentName}`);
+
+          try {
+            const res = await axios.post(
+              `${microserviceUrl}/send-message`,
+              {
+                phone: formattedPhone,
+                message,
+              },
+              {
+                headers: {
+                  "x-secret-key": secretKey,
+                  "Content-Type": "application/json",
                 },
-                {
-                  headers: {
-                    "x-secret-key": secretKey,
-                  },
-                }
-              );
-              console.log(`✅ [WhatsApp Absent Alert Sent] Student: ${studentName} | Phone: ${parentPhone}`);
-            } catch (msgErr: any) {
-              console.error(
-                `❌ [WhatsApp Dispatch Failed] Student: ${studentName} | Phone: ${parentPhone} | Error:`,
-                msgErr?.response?.data || msgErr?.message
-              );
-            }
+              }
+            );
+
+            console.log(`✅ [WhatsApp Dispatch Success] Student: ${studentName} | Status: ${res.data?.message || 'OK'}`);
+          } catch (msgErr: any) {
+            console.error(
+              `❌ [WhatsApp Dispatch HTTP Failed] Student: ${studentName} | Phone: ${formattedPhone} | Error:`,
+              msgErr?.response?.data || msgErr?.message
+            );
           }
         }
       } catch (err) {
@@ -123,7 +146,6 @@ const getSectionAttendanceFromDB = async (
 ) => {
   const targetDate = new Date(date);
 
-  // Get enrolled students in section
   const students = await prisma.studentProfile.findMany({
     where: {
       classId,
@@ -143,7 +165,6 @@ const getSectionAttendanceFromDB = async (
     },
   });
 
-  // Fetch attendance records for target date
   const attendanceRecords = await prisma.attendance.findMany({
     where: {
       classId,
@@ -152,7 +173,6 @@ const getSectionAttendanceFromDB = async (
     },
   });
 
-  // Map attendance record with student profile
   const attendanceMap = new Map(
     attendanceRecords.map((att) => [att.studentId, att.status])
   );
@@ -164,7 +184,7 @@ const getSectionAttendanceFromDB = async (
     studentName: `${student.firstName} ${student.lastName}`.trim(),
     rollNo: student.rollNo,
     photoUrl: student.photoUrl,
-    status: attendanceMap.get(student.id) || "PRESENT", // Default to PRESENT if unrecorded
+    status: attendanceMap.get(student.id) || "PRESENT",
   }));
 
   return result;
