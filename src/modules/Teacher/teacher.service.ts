@@ -148,9 +148,60 @@ const getAllTeachersFromDB = async () => {
   });
 };
 
+// ------------------- NEW ADDITIONS -------------------
+
+// 5. Update Teacher Profile (Admin Only)
+const updateTeacherInDB = async (
+  teacherProfileId: string,
+  payload: Partial<TRegisterTeacherPayload>
+) => {
+  const teacherProfile = await prisma.teacherProfile.findUnique({
+    where: { id: teacherProfileId },
+  });
+
+  if (!teacherProfile) {
+    throw new Error('Teacher profile not found!');
+  }
+
+  const result = await prisma.teacherProfile.update({
+    where: { id: teacherProfileId },
+    data: payload,
+  });
+
+  return result;
+};
+
+// 6. Delete Teacher Profile and User Account (Admin Only)
+const deleteTeacherFromDB = async (teacherProfileId: string) => {
+  const teacherProfile = await prisma.teacherProfile.findUnique({
+    where: { id: teacherProfileId },
+  });
+
+  if (!teacherProfile) {
+    throw new Error('Teacher profile not found!');
+  }
+
+  // Transaction: Delete Teacher Profile and User Account
+  const result = await prisma.$transaction(async (tx) => {
+    const deletedProfile = await tx.teacherProfile.delete({
+      where: { id: teacherProfileId },
+    });
+
+    await tx.user.delete({
+      where: { id: teacherProfile.userId },
+    });
+
+    return deletedProfile;
+  });
+
+  return result;
+};
+
 export const TeacherService = {
   registerTeacherIntoDB,
   getPendingTeachersFromDB,
   approveTeacherInDB,
   getAllTeachersFromDB,
+  updateTeacherInDB,
+  deleteTeacherFromDB
 };

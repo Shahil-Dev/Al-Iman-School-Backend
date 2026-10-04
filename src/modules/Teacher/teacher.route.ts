@@ -31,4 +31,19 @@ router.patch(
 // Public / Authenticated: Get All Active Teachers List
 router.get('/', TeacherController.getAllTeachers);
 
+
+// Admin Only: Update Teacher Profile Info
+router.patch(
+  '/:id',
+  authGuard(Role.SUPER_ADMIN),
+  TeacherController.updateTeacher
+);
+
+// Admin Only: Permanently Delete Teacher Profile & User Account
+router.delete(
+  '/:id',
+  authGuard(Role.SUPER_ADMIN),
+  TeacherController.deleteTeacher
+);
+
 export const TeacherRoutes = router;

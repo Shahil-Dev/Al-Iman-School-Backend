@@ -71,9 +71,49 @@ const getAllTeachers = async (req: Request, res: Response) => {
   }
 };
 
+// ------------------- NEW ADDITIONS -------------------
+
+const updateTeacher = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await TeacherService.updateTeacherInDB(id as string, req.body);
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Teacher profile updated successfully!',
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to update teacher profile',
+    });
+  }
+};
+
+const deleteTeacher = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await TeacherService.deleteTeacherFromDB(id as string);
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: 'Teacher profile and account deleted successfully!',
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to delete teacher',
+    });
+  }
+};
+
 export const TeacherController = {
   registerTeacher,
   getPendingTeachers,
   approveTeacher,
   getAllTeachers,
+  updateTeacher,
+  deleteTeacher,
 };
