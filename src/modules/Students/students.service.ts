@@ -2,9 +2,11 @@ import { Prisma } from "@prisma/client";
 import prisma from "../../lib/prisma";
 import { generateStudentCode, generateStudentPin } from "./student.utils";
 import { ICreateStudentInput } from "./students.interface";
+import axios from "axios";
 
 /**
  * Create a new student with auto-generated studentCode, studentIdNo and PIN
+ * & Send Automatic WhatsApp Notification to Guardian/Student
  */
 const createStudentIntoDB = async (payload: ICreateStudentInput) => {
   const studentCode = payload.studentCode || (await generateStudentCode());
@@ -35,6 +37,50 @@ const createStudentIntoDB = async (payload: ICreateStudentInput) => {
       parent: true,
     },
   });
+
+  // 🔴 Non-blocking WhatsApp Notification Dispatch on Admission / Registration
+  (async () => {
+    try {
+      const parentPhone =
+        (result as any).parent?.phone ||
+        (result as any).phone ||
+        (result as any).guardianPhone;
+
+      if (parentPhone) {
+        const studentName = `${result.firstName || ""} ${result.lastName || ""}`.trim();
+        const className = result.class?.name || "N/A";
+        const sectionName = result.section?.name || "";
+        const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL;
+        const secretKey = process.env.MICROSERVICE_SECRET_KEY;
+
+        if (microserviceUrl) {
+          const message = `🎉 অভিনন্দন!\nআল-ঈমান স্কুলে ${studentName}-এর ভর্তি প্রক্রিয়া সফলভাবে সম্পন্ন হয়েছে।\n\n📌 তথ্যসমূহ:\n- শ্রেণি: ${className} ${sectionName}\n- স্টুডেন্ট আইডি: ${studentIdNo}\n- পিন (PIN): ${pin}\n\nধন্যবাদ,\nআল-ঈমান স্কুল ও কলেজ কর্তৃপক্ষ।`;
+
+          await axios.post(
+            `${microserviceUrl}/send-message`,
+            {
+              phone: parentPhone,
+              message,
+            },
+            {
+              headers: {
+                "x-secret-key": secretKey,
+              },
+            }
+          );
+          console.log(
+            `✅ [WhatsApp Admission Dispatch Success] Student: ${studentName} | Phone: ${parentPhone}`
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error(
+        "❌ [WhatsApp Admission Dispatch Failed]:",
+        err?.response?.data || err?.message || err
+      );
+    }
+  })();
+
   return result;
 };
 

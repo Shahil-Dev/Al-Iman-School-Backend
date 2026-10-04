@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma";
+import axios from "axios";
 
 export interface ISingleAttendanceInput {
   studentId: string;
@@ -12,11 +13,12 @@ export interface ITakeAttendancePayload {
   attendances: ISingleAttendanceInput[];
 }
 
-// 1. Take / Update Bulk Attendance into DB (Matched with Prisma Schema @@unique([date, studentId]))
+// 1. Take / Update Bulk Attendance into DB & Trigger WhatsApp Alerts for ABSENT Students
 const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
   const { date, classId, sectionId, attendances } = payload;
   const attendanceDate = new Date(date);
 
+  // DB Operations for Bulk Upsert
   const operations = attendances.map((item) =>
     prisma.attendance.upsert({
       where: {
@@ -39,6 +41,77 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
   );
 
   const result = await prisma.$transaction(operations);
+
+  // 🔴 Trigger WhatsApp Dispatch for ABSENT Students
+  const absentStudentIds = attendances
+    .filter((item) => item.status === "ABSENT")
+    .map((item) => item.studentId);
+
+  if (absentStudentIds.length > 0) {
+    // Background execution to protect DB performance
+    (async () => {
+      try {
+        const absentStudents = await prisma.studentProfile.findMany({
+          where: {
+            id: { in: absentStudentIds },
+          },
+          include: {
+            class: true,
+            section: true,
+            parentProfile: true,
+          },
+        });
+
+        const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL;
+        const secretKey = process.env.MICROSERVICE_SECRET_KEY;
+
+        if (!microserviceUrl) {
+          console.error("⚠️ WHATSAPP_MICROSERVICE_URL missing in .env!");
+          return;
+        }
+
+        for (const student of absentStudents as any[]) {
+          // Safe phone number extraction from parentProfile or student fields
+          const parentPhone =
+            student.parentProfile?.phone ||
+            student.guardianPhone ||
+            student.phone;
+
+          if (parentPhone) {
+            const studentName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
+            const className = student.class?.name || "N/A";
+            const sectionName = student.section?.name || "";
+
+            const message = `السلام عليكم,\nসম্মানিত অভিভাবক, আপনার সন্তান ${studentName} (শ্রেণি: ${className} ${sectionName}, রোল: ${student.rollNo}) আজ (${date}) আল-ঈমান স্কুলে অনুপস্থিত রয়েছে।\n\n- আল-ঈমান স্কুল ও কলেজ কর্তৃপক্ষ।`;
+
+            try {
+              await axios.post(
+                `${microserviceUrl}/send-message`,
+                {
+                  phone: parentPhone,
+                  message,
+                },
+                {
+                  headers: {
+                    "x-secret-key": secretKey,
+                  },
+                }
+              );
+              console.log(`✅ [WhatsApp Absent Alert Sent] Student: ${studentName} | Phone: ${parentPhone}`);
+            } catch (msgErr: any) {
+              console.error(
+                `❌ [WhatsApp Dispatch Failed] Student: ${studentName} | Phone: ${parentPhone} | Error:`,
+                msgErr?.response?.data || msgErr?.message
+              );
+            }
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error in WhatsApp notification loop:", err);
+      }
+    })();
+  }
+
   return result;
 };
 
