@@ -1,22 +1,26 @@
 model TeacherProfile {
-  id                   String          @id @default(uuid())
-  userId               String          @unique
-  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  employeeId           String          @unique
-  name                 String
-  designation          String
-  department           String?         // Subject Specialty / Department
-  qualification        String?         // Educational Qualification
-  phone                String          @unique
-  gender               Gender
-  bloodGroup           String?
-  nidOrPassport        String?
-  photoUrl             String?
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId     String   @unique
+  name           String
+  designation    String
+  department     String?
+  qualification  String?
+  phone          String   @unique
+  gender         Gender
+  bloodGroup     String?
+  nidOrPassport  String?
+  photoUrl       String?
 
-  subjects             Subject[]
-  payrolls             TeacherPayroll[]
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  // 🔹 Class Teacher Assignment Relation
+  classTeacherOfId String? @unique
+  classTeacherOf   Class?  @relation("ClassTeacher", fields: [classTeacherOfId], references: [id])
+
+  subjects  Subject[]
+  payrolls  TeacherPayroll[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("teacher_profiles")
 }

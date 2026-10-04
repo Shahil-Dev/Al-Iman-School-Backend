@@ -3,6 +3,7 @@ model Class {
   name                  String // e.g., Class 6, Class 7
   academicYearId        String
   academicYear          AcademicYear           @relation(fields: [academicYearId], references: [id])
+  classTeacher TeacherProfile? @relation("ClassTeacher")
   sections              Section[]
   subjects              Subject[]
   students              StudentProfile[]
