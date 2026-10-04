@@ -6,7 +6,7 @@ import prisma from "../../lib/prisma";
 const loginUser = async (payload: TLoginUser) => {
   const { email, password } = payload;
 
-  // 1. Find the user by Email, Student Code (e.g. STU-26-6358), Student ID, Phone Number, Teacher ID, or Parent Phone
+  // 1. Find user by Email, Student Code, Student ID, Phone, Teacher Phone/EmployeeID, or Parent Phone
   const user = await prisma.user.findFirst({
     where: {
       OR: [
@@ -15,12 +15,17 @@ const loginUser = async (payload: TLoginUser) => {
         { studentProfile: { studentIdNo: email } },
         { studentProfile: { phone: email } },
         { teacherProfile: { employeeId: email } },
+        { teacherProfile: { phone: email } }, // 👈 Added Teacher Phone Number Search
         { parentProfile: { phone: email } },
       ],
     },
     include: {
       studentProfile: true,
-      teacherProfile: true,
+      teacherProfile: {
+        include: {
+          classTeacherOf: true, // Includes class teacher assignment data if exists
+        },
+      },
       parentProfile: true,
     },
   });
@@ -90,7 +95,11 @@ const getMyProfileFromDB = async (userId: string) => {
           class: true,
         },
       },
-      teacherProfile: true,
+      teacherProfile: {
+        include: {
+          classTeacherOf: true, // 👈 Includes assigned class in /auth/me profile
+        },
+      },
       parentProfile: {
         include: {
           students: true,
