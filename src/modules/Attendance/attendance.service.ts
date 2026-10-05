@@ -13,9 +13,9 @@ export interface ITakeAttendancePayload {
   attendances: ISingleAttendanceInput[];
 }
 
-// Helper to format BD Phone Numbers cleanly for WhatsApp
+// Helper: Format Bangladesh phone numbers into WhatsApp compatible standard (880...)
 const formatBDPhone = (phone: string): string => {
-  let clean = phone.replace(/\D/g, ""); // strip non-digits
+  let clean = phone.replace(/\D/g, ""); // Remove non-digit characters
   if (clean.startsWith("0")) {
     clean = `88${clean}`;
   } else if (!clean.startsWith("88") && clean.length === 10) {
@@ -58,10 +58,10 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
     .filter((item) => item.status && item.status.toUpperCase() === "ABSENT")
     .map((item) => item.studentId);
 
-  console.log(`📡 [Attendance Processing] Total Absent Students Found: ${absentStudentIds.length}`);
+  console.log(`📡 [Attendance Service] Total ABSENT students found: ${absentStudentIds.length}`);
 
   if (absentStudentIds.length > 0) {
-    // Non-blocking async background execution
+    // Asynchronous non-blocking background task
     (async () => {
       try {
         const absentStudents = await prisma.studentProfile.findMany({
@@ -76,35 +76,35 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
         });
 
         const rawBaseUrl = process.env.WHATSAPP_MICROSERVICE_URL || "";
-        const microserviceUrl = rawBaseUrl.replace(/\/+$/, ""); // Remove trailing slash
+        const microserviceUrl = rawBaseUrl.replace(/\/+$/, ""); // Trim trailing slash
         const secretKey = process.env.MICROSERVICE_SECRET_KEY;
 
         if (!microserviceUrl) {
-          console.error("❌ WHATSAPP_MICROSERVICE_URL missing in .env!");
+          console.error("❌ WHATSAPP_MICROSERVICE_URL is missing in environment variables!");
           return;
         }
 
         for (const student of absentStudents as any[]) {
-          // Check parent phone or student phone fallback
+          // Extract parent phone with proper Prisma relation name (parent)
           const rawPhone =
             student.parent?.phone ||
             student.phone ||
-            student.guardianPhone;
+            student.altPhone;
 
           if (!rawPhone) {
-            console.warn(`⚠️ [WhatsApp Warning] No phone number found for student: ${student.firstName} ${student.lastName} (ID: ${student.id})`);
+            console.warn(`⚠️ [WhatsApp Warning] No phone number found for student: ${student.firstName} ${student.lastName}`);
             continue;
           }
 
           const formattedPhone = formatBDPhone(rawPhone);
           const studentName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
           const className = student.class?.name || "N/A";
-          const rollNo = student.rollNo || "N/A";
+          const rollNo = student.rollNo ?? "N/A";
 
-          // 💬 Custom Exact Message requested
+          // 💬 Exact requested English WhatsApp message format
           const message = `Dear Parent, Your child ${studentName} (Roll: ${rollNo}, Class: ${className}) was marked ABSENT today (${date}) at Al-Iman School. Please contact administration if you have any query.`;
 
-          console.log(`🛫 [Dispatching WA Alert] To: ${formattedPhone} | Student: ${studentName}`);
+          console.log(`🛫 [Dispatching Attendance WA Message] To: ${formattedPhone} | Student: ${studentName}`);
 
           try {
             const res = await axios.post(
@@ -121,16 +121,16 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
               }
             );
 
-            console.log(`✅ [WhatsApp Dispatch Success] Student: ${studentName} | Status: ${res.data?.message || 'OK'}`);
+            console.log(`✅ [WhatsApp Attendance Success] To: ${formattedPhone} | Response: ${res.data?.message || "Dispatched"}`);
           } catch (msgErr: any) {
             console.error(
-              `❌ [WhatsApp Dispatch HTTP Failed] Student: ${studentName} | Phone: ${formattedPhone} | Error:`,
+              `❌ [WhatsApp Attendance HTTP Error] Student: ${studentName} | Phone: ${formattedPhone} | Error:`,
               msgErr?.response?.data || msgErr?.message
             );
           }
         }
       } catch (err) {
-        console.error("❌ Error in WhatsApp notification loop:", err);
+        console.error("❌ Error in WhatsApp attendance notification dispatch loop:", err);
       }
     })();
   }

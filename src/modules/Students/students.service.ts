@@ -4,9 +4,20 @@ import { generateStudentCode, generateStudentPin } from "./student.utils";
 import { ICreateStudentInput } from "./students.interface";
 import axios from "axios";
 
+// Helper: Format Bangladesh phone numbers into WhatsApp standard (880...)
+const formatBDPhone = (phone: string): string => {
+  let clean = phone.replace(/\D/g, "");
+  if (clean.startsWith("0")) {
+    clean = `88${clean}`;
+  } else if (!clean.startsWith("88") && clean.length === 10) {
+    clean = `88${clean}`;
+  }
+  return clean;
+};
+
 /**
  * Create a new student with auto-generated studentCode, studentIdNo and PIN
- * & Send Automatic WhatsApp Notification to Guardian/Student
+ * & Send Automatic WhatsApp Notification to Guardian
  */
 const createStudentIntoDB = async (payload: ICreateStudentInput) => {
   const studentCode = payload.studentCode || (await generateStudentCode());
@@ -38,38 +49,42 @@ const createStudentIntoDB = async (payload: ICreateStudentInput) => {
     },
   });
 
-  // 🔴 Non-blocking WhatsApp Notification Dispatch on Admission / Registration
+  // 🔴 Non-blocking WhatsApp Notification Dispatch on Admission Approval/Creation
   (async () => {
     try {
-      const parentPhone =
+      const rawPhone =
         (result as any).parent?.phone ||
         (result as any).phone ||
-        (result as any).guardianPhone;
+        (result as any).altPhone;
 
-      if (parentPhone) {
+      if (rawPhone) {
+        const formattedPhone = formatBDPhone(rawPhone);
         const studentName = `${result.firstName || ""} ${result.lastName || ""}`.trim();
         const className = result.class?.name || "N/A";
         const sectionName = result.section?.name || "";
-        const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL;
+        const rawBaseUrl = process.env.WHATSAPP_MICROSERVICE_URL || "";
+        const microserviceUrl = rawBaseUrl.replace(/\/+$/, "");
         const secretKey = process.env.MICROSERVICE_SECRET_KEY;
 
         if (microserviceUrl) {
-          const message = `🎉 অভিনন্দন!\nআল-ঈমান স্কুলে ${studentName}-এর ভর্তি প্রক্রিয়া সফলভাবে সম্পন্ন হয়েছে।\n\n📌 তথ্যসমূহ:\n- শ্রেণি: ${className} ${sectionName}\n- স্টুডেন্ট আইডি: ${studentIdNo}\n- পিন (PIN): ${pin}\n\nধন্যবাদ,\nআল-ঈমান স্কুল ও কলেজ কর্তৃপক্ষ।`;
+          // 💬 Admission Approval Message Format with Student Code & ID
+          const message = `🎉 অভিনন্দন!\nআল-ঈমান স্কুলে ${studentName}-এর ভর্তি প্রক্রিয়া সফলভাবে সম্পন্ন হয়েছে।\n\n📌 শিক্ষার্থীর তথ্যাবলী:\n- শ্রেণি: ${className} ${sectionName}\n- Code: ${studentCode}\n- ID: ${studentIdNo}\n- পিন (PIN): ${pin}\n\nধন্যবাদ,\nআল-ঈমান স্কুল অ্যান্ড কলেজ কর্তৃপক্ষ।`;
 
           await axios.post(
             `${microserviceUrl}/send-message`,
             {
-              phone: parentPhone,
+              phone: formattedPhone,
               message,
             },
             {
               headers: {
                 "x-secret-key": secretKey,
+                "Content-Type": "application/json",
               },
             }
           );
           console.log(
-            `✅ [WhatsApp Admission Dispatch Success] Student: ${studentName} | Phone: ${parentPhone}`
+            `✅ [WhatsApp Admission Success] Student: ${studentName} | Phone: ${formattedPhone}`
           );
         }
       }
@@ -85,13 +100,12 @@ const createStudentIntoDB = async (payload: ICreateStudentInput) => {
 };
 
 /**
- * Fetch all students with optional filters (including parentId & userId for Security)
+ * Fetch all students with optional filters
  */
 const getAllStudentsFromDB = async (query: Record<string, any>) => {
   const { searchTerm, classId, sectionId, parentId, userId } = query;
   const andConditions: any[] = [];
 
-  // Search Filter
   if (searchTerm && typeof searchTerm === "string" && searchTerm.trim() !== "") {
     const term = searchTerm.trim();
     andConditions.push({
@@ -107,22 +121,18 @@ const getAllStudentsFromDB = async (query: Record<string, any>) => {
     });
   }
 
-  // Class Filter
   if (classId && classId !== "ALL" && classId !== "undefined") {
     andConditions.push({ classId });
   }
 
-  // Section Filter
   if (sectionId && sectionId !== "ALL" && sectionId !== "undefined") {
     andConditions.push({ sectionId });
   }
 
-  // Parent ID Filter (For Parent Dashboard)
   if (parentId && parentId !== "undefined") {
     andConditions.push({ parentId });
   }
 
-  // User ID Filter (For Student Dashboard)
   if (userId && userId !== "undefined") {
     andConditions.push({ userId });
   }
