@@ -6,7 +6,11 @@ import {
 } from "./payment.interface";
 import prisma from "../../lib/prisma";
 
-// Helper function to format BD phone number cleanly (880...)
+// ----------------------------------------------------------------------
+// HELPER FUNCTIONS
+// ----------------------------------------------------------------------
+
+// 1. Clean and format Bangladeshi phone numbers to international standard (880...)
 const formatBDPhone = (phone: string): string => {
   let clean = phone.replace(/\D/g, "");
   if (clean.startsWith("0")) {
@@ -17,7 +21,36 @@ const formatBDPhone = (phone: string): string => {
   return clean;
 };
 
-// Helper function to send WhatsApp via Baileys microservice
+// 2. Extract student/parent phone number safely
+const getRecipientPhone = (student: any): string | null => {
+  return student?.parent?.phone || student?.phone || student?.altPhone || null;
+};
+
+// 3. Centralized WhatsApp Fee Reminder Template Generator
+const generateFeeReminderTemplate = (
+  studentName: string,
+  amount: number,
+  invoiceNo: string,
+  dueDateFormatted: string,
+): string => {
+  return `আসসালামু আলাইকুম ওয়া রহমাতুল্লাহ।
+
+সম্মানিত অভিভাবক/অভিভাবিকা,
+আমাদের প্রতিষ্ঠানের মূল লক্ষ্য হলো শিক্ষার্থীদের ইসলামিক মূল্যবোধ ও আধুনিক শিক্ষার সমন্বয়ে এক একজন আদর্শ মানুষ হিসেবে গড়ে তোলা। এই শিক্ষা কার্যক্রম সুন্দর, সাবলীল ও সুশৃঙ্খলভাবে পরিচালনার পেছনে প্রতিষ্ঠানের খরচ পরিচালনা এবং শিক্ষক-কর্মচারীদের মাসিক পারিশ্রমিক নিয়মিত প্রদান করা অত্যন্ত জরুরি।
+
+পবিত্র কুরআনে আল্লাহ তাআলা লেনদেনের স্বচ্ছতা ও প্রতিশ্রুতি পালনের বিষয়ে ইরশাদ করেছেন:
+"হে মুমিনগণ! তোমরা অঙ্গীকারসমূহ পূর্ণ করো।" — (সূরা আল-মায়িদাহ, আয়াত: ১)
+
+প্রতিনিয়ত অর্জিত দ্বীনি ও পার্থিব জ্ঞানের বিনিময়ে অর্পিত দায়িত্ব পালন করা আমাদের সকলের জন্য নৈতিক ও ঈমানি দায়িত্ব। এছাড়া শ্রমিক ও সেবাদাতাদের পরিশ্রমের মূল্য সময়মতো পরিশোধের ব্যাপারে রাসুলুল্লাহ (সা.) নির্দেশ দিয়ে বলেছেন:
+"তোমরা শ্রমিকের গায়ের ঘাম শুকানোর আগেই তার মজুরি বুঝিয়ে দাও।" — (সুনানে ইবনে মাজাহ: ২৪৪৩)
+
+আপনার সন্তান ${studentName}-এর শিক্ষা অর্জন যেন নিরবচ্ছিন্ন থাকে এবং প্রতিষ্ঠানটি যেন সুচারুরূপে পরিচালিত হতে পারে, সে উদ্দেশ্যে চলতি মাসের ফি/বকেয়া ফি বাবদ ৳${amount} (ইনভয়েস নং: ${invoiceNo}) আগামী ${dueDateFormatted}-এর মধ্যে পরিশোধ করার জন্য বিশেষভাবে অনুরোধ করা হচ্ছে।
+
+—
+আল-ইমান স্কুল অ্যান্ড কলেজ`;
+};
+
+// 4. Send WhatsApp Notification via Baileys Microservice
 const sendWhatsAppNotification = async (phone: string, message: string) => {
   try {
     let baseUrl =
@@ -35,28 +68,33 @@ const sendWhatsAppNotification = async (phone: string, message: string) => {
     const formattedPhone = formatBDPhone(phone);
 
     console.log(
-      `📡 [WhatsApp Microservice Dispatching]: ${baseUrl} for Phone: ${formattedPhone}`
+      `📡 [WhatsApp Microservice Dispatching]: ${baseUrl} for Phone: ${formattedPhone}`,
     );
 
     const response = await axios.post(
       baseUrl,
       { phone: formattedPhone, message },
-      { headers: { "x-secret-key": secretKey, "Content-Type": "application/json" } }
+      {
+        headers: {
+          "x-secret-key": secretKey,
+          "Content-Type": "application/json",
+        },
+      },
     );
 
     console.log("✅ Baileys Microservice Response:", response.data);
-  } catch (err: any) {
-    console.error(
-      "❌ Baileys WhatsApp Dispatch Notification Error:",
-      err?.response?.data || err?.message || err
-    );
+  } catch (err: unknown) {
+    const errorMsg = axios.isAxiosError(err)
+      ? err.response?.data || err.message
+      : (err as Error).message;
+
+    console.error("❌ Baileys WhatsApp Dispatch Notification Error:", errorMsg);
   }
 };
 
-// Helper to extract student/parent phone safely
-const getRecipientPhone = (student: any): string | null => {
-  return student?.parent?.phone || student?.phone || student?.altPhone || null;
-};
+// ----------------------------------------------------------------------
+// SERVICE METHODS
+// ----------------------------------------------------------------------
 
 // 1. Generate Invoice (Auto-generated Unique Invoice No)
 const createInvoiceIntoDB = async (payload: TCreateInvoicePayload) => {
@@ -81,7 +119,6 @@ const createInvoiceIntoDB = async (payload: TCreateInvoicePayload) => {
 
   const recipientPhone = getRecipientPhone(result.student);
 
-  // Baileys WhatsApp Notification with Quranic verse & Hadith for New Month Fee Invoice
   if (recipientPhone) {
     const dueDateFormatted = new Date(payload.dueDate).toLocaleDateString(
       "bn-BD",
@@ -90,28 +127,22 @@ const createInvoiceIntoDB = async (payload: TCreateInvoicePayload) => {
         year: "numeric",
         month: "long",
         day: "numeric",
-      }
+      },
     );
 
-    const studentName = `${result.student.firstName || ""} ${result.student.lastName || ""}`.trim();
+    const studentName = `${result.student.firstName || ""} ${
+      result.student.lastName || ""
+    }`.trim();
 
-    const message = `আসসালামু আলাইকুম ওয়া রহমাতুল্লাহ।
+    const message = generateFeeReminderTemplate(
+      studentName,
+      payload.amount,
+      invoiceNo,
+      dueDateFormatted,
+    );
 
-সম্মানিত অভিভাবক/অভিভাবিকা,
-আমাদের প্রতিষ্ঠানের মূল লক্ষ্য হলো শিক্ষার্থীদের ইসলামিক মূল্যবোধ ও আধুনিক শিক্ষার সমন্বয়ে এক একজন আদর্শ মানুষ হিসেবে গড়ে তোলা। এই শিক্ষা কার্যক্রম সুন্দর, সাবলীল ও সুশৃঙ্খলভাবে পরিচালনার পেছনে প্রতিষ্ঠানের খরচ পরিচালনা এবং শিক্ষক-কর্মচারীদের মাসিক পারিশ্রমিক নিয়মিত প্রদান করা অত্যন্ত জরুরি।
-
-পবিত্র কুরআনে আল্লাহ তাআলা লেনদেনের স্বচ্ছতা ও প্রতিশ্রুতি পালনের বিষয়ে ইরশাদ করেছেন:
-"হে মুমিনগণ! তোমরা অঙ্গীকারসমূহ পূর্ণ করো।" — (সূরা আল-মায়িদাহ, আয়াত: ১)
-
-প্রতিনিয়ত অর্জিত দ্বীনি ও পার্থিব জ্ঞানের বিনিময়ে অর্পিত দায়িত্ব পালন করা আমাদের সকলের জন্য নৈতিক ও ঈমানি দায়িত্ব। এছাড়া শ্রমিক ও সেবাদাতাদের পরিশ্রমের মূল্য সময়মতো পরিশোধের ব্যাপারে রাসুলুল্লাহ (সা.) নির্দেশ দিয়ে বলেছেন:
-"তোমরা শ্রমিকের গায়ের ঘাম শুকানোর আগেই তার মজুরি বুঝিয়ে দাও।" — (সুনানে ইবনে মাজাহ: ২৪৪৩)
-
-আপনার সন্তান ${studentName}-এর শিক্ষা অর্জন যেন নিরবচ্ছিন্ন থাকে এবং প্রতিষ্ঠানটি যেন সুচারুরূপে পরিচালিত হতে পারে, সে উদ্দেশ্যে চলতি মাসের ফি বাবদ ৳${payload.amount} (ইনভয়েস নং: ${invoiceNo}) আগামী ${dueDateFormatted}-এর মধ্যে পরিশোধ করার জন্য বিশেষভাবে অনুরোধ করা হচ্ছে।
-
-—
-আল-ইমান স্কুল অ্যান্ড কলেজ`;
-
-    sendWhatsAppNotification(recipientPhone, message);
+    // Using await to ensure process completes cleanly
+    await sendWhatsAppNotification(recipientPhone, message);
   }
 
   return result;
@@ -147,7 +178,7 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
 
     if (existingTransaction) {
       throw new Error(
-        "এই ট্রানজেকশন আইডিটি (TrxID) ইতিমধ্যে একবার ব্যবহার করা হয়েছে! অনুগ্রহ করে সঠিক ট্রানজেকশন আইডি প্রদান করুন।"
+        "এই ট্রানজেকশন আইডিটি (TrxID) ইতিমধ্যে একবার ব্যবহার করা হয়েছে! অনুগ্রহ করে সঠিক ট্রানজেকশন আইডি প্রদান করুন।",
       );
     }
   }
@@ -184,10 +215,13 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
   const recipientPhone = getRecipientPhone(invoice.student);
 
   if (recipientPhone) {
-    const studentName = `${invoice.student.firstName || ""} ${invoice.student.lastName || ""}`.trim();
+    const studentName = `${invoice.student.firstName || ""} ${
+      invoice.student.lastName || ""
+    }`.trim();
+
     const confirmMessage = `আসসালামু আলাইকুম। আল-ইমান স্কুল অ্যান্ড কলেজ।\n\nধন্যবাদ! আপনার সন্তান ${studentName}-এর ফি সফলভাবে গ্রহণ করা হয়েছে।\n\nইনভয়েস নং: ${invoice.invoiceNo}\nপরিশোধিত অর্থ: ৳${amount}\nপেমেন্ট মেথড: ${method}\nট্রানজেকশন আইডি: ${finalTrxId}`;
 
-    sendWhatsAppNotification(recipientPhone, confirmMessage);
+    await sendWhatsAppNotification(recipientPhone, confirmMessage);
   }
 
   return result;
@@ -212,34 +246,29 @@ const sendPendingFeeRemindersFromDB = async () => {
     },
   });
 
-  console.log(`📋 Found ${pendingInvoices.length} pending/partial invoices to send reminders.`);
+  console.log(
+    `📋 Found ${pendingInvoices.length} pending/partial invoices to send reminders.`,
+  );
 
   for (const invoice of pendingInvoices) {
     const recipientPhone = getRecipientPhone(invoice.student);
 
     if (recipientPhone) {
-      const studentName = `${invoice.student.firstName || ""} ${invoice.student.lastName || ""}`.trim();
+      const studentName = `${invoice.student.firstName || ""} ${
+        invoice.student.lastName || ""
+      }`.trim();
       const dueAmount = invoice.amount - invoice.paidAmount;
       const dueDateFormatted = new Date(invoice.dueDate).toLocaleDateString(
         "bn-BD",
-        { year: "numeric", month: "long", day: "numeric" }
+        { year: "numeric", month: "long", day: "numeric" },
       );
 
-      const reminderMessage = `আসসালামু আলাইকুম ওয়া রহমাতুল্লাহ।
-
-সম্মানিত অভিভাবক/অভিভাবিকা,
-আমাদের প্রতিষ্ঠানের মূল লক্ষ্য হলো শিক্ষার্থীদের ইসলামিক মূল্যবোধ ও আধুনিক শিক্ষার সমন্বয়ে এক একজন আদর্শ মানুষ হিসেবে গড়ে তোলা। এই শিক্ষা কার্যক্রম সুন্দর, সাবলীল ও সুশৃঙ্খলভাবে পরিচালনার পেছনে প্রতিষ্ঠানের খরচ পরিচালনা এবং শিক্ষক-কর্মচারীদের মাসিক পারিশ্রমিক নিয়মিত প্রদান করা অত্যন্ত জরুরি।
-
-পবিত্র কুরআনে আল্লাহ তাআলা লেনদেনের স্বচ্ছতা ও প্রতিশ্রুতি পালনের বিষয়ে ইরশাদ করেছেন:
-"হে মুমিনগণ! তোমরা অঙ্গীকারসমূহ পূর্ণ করো।" — (সূরা আল-মায়িদাহ, আয়াত: ১)
-
-প্রতিনিয়ত অর্জিত দ্বীনি ও পার্থিব জ্ঞানের বিনিময়ে অর্পিত দায়িত্ব পালন করা আমাদের সকলের জন্য নৈতিক ও ঈমানি দায়িত্ব। এছাড়া শ্রমিক ও সেবাদাতাদের পরিশ্রমের মূল্য সময়মতো পরিশোধের ব্যাপারে রাসুলুল্লাহ (সা.) নির্দেশ দিয়ে বলেছেন:
-"তোমরা শ্রমিকের গায়ের ঘাম শুকানোর আগেই তার মজুরি বুঝিয়ে দাও।" — (সুনানে ইবনে মাজাহ: ২৪৪৩)
-
-আপনার সন্তান ${studentName}-এর শিক্ষা অর্জন যেন নিরবচ্ছিন্ন থাকে এবং প্রতিষ্ঠানটি যেন সুচারুরূপে পরিচালিত হতে পারে, সে উদ্দেশ্যে চলতি মাসের বকেয়া ফি বাবদ ৳${dueAmount} (ইনভয়েস নং: ${invoice.invoiceNo}) আগামী ${dueDateFormatted}-এর মধ্যে পরিশোধ করার জন্য বিশেষভাবে অনুরোধ করা হচ্ছে।
-
-—
-আল-ইমান স্কুল অ্যান্ড কলেজ`;
+      const reminderMessage = generateFeeReminderTemplate(
+        studentName,
+        dueAmount,
+        invoice.invoiceNo,
+        dueDateFormatted,
+      );
 
       await sendWhatsAppNotification(recipientPhone, reminderMessage);
     }
@@ -248,7 +277,7 @@ const sendPendingFeeRemindersFromDB = async () => {
 
 // 4. Get Invoice Details by Student ID
 const getStudentInvoicesFromDB = async (studentId: string) => {
-  const result = await prisma.studentInvoice.findMany({
+  return await prisma.studentInvoice.findMany({
     where: { studentId },
     include: {
       transactions: true,
@@ -261,13 +290,11 @@ const getStudentInvoicesFromDB = async (studentId: string) => {
     },
     orderBy: { createdAt: "desc" },
   });
-
-  return result;
 };
 
 // 5. Get All Invoices and Payment Transactions for Admin Overview
 const getAllInvoicesFromDB = async () => {
-  const result = await prisma.studentInvoice.findMany({
+  return await prisma.studentInvoice.findMany({
     include: {
       transactions: true,
       student: {
@@ -282,9 +309,124 @@ const getAllInvoicesFromDB = async () => {
     },
     orderBy: { createdAt: "desc" },
   });
-
-  return result;
 };
+
+// 6. Manual One-Click Single Invoice Reminder Trigger (Admin Action)
+const sendSingleInvoiceReminderFromDB = async (invoiceId: string) => {
+  const invoice = await prisma.studentInvoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      student: {
+        include: {
+          parent: true,
+        },
+      },
+    },
+  });
+
+  if (!invoice) {
+    throw new Error("Invoice not found!");
+  }
+
+  if (invoice.status === PaymentStatus.PAID) {
+    throw new Error("This invoice is already paid!");
+  }
+
+  const recipientPhone = getRecipientPhone(invoice.student);
+
+  if (!recipientPhone) {
+    throw new Error("No phone number found for this student or parent!");
+  }
+
+  const studentName = `${invoice.student.firstName || ""} ${
+    invoice.student.lastName || ""
+  }`.trim();
+  const dueAmount = invoice.amount - invoice.paidAmount;
+  const dueDateFormatted = new Date(invoice.dueDate).toLocaleDateString(
+    "bn-BD",
+    { year: "numeric", month: "long", day: "numeric" },
+  );
+
+  const reminderMessage = generateFeeReminderTemplate(
+    studentName,
+    dueAmount,
+    invoice.invoiceNo,
+    dueDateFormatted,
+  );
+
+  await sendWhatsAppNotification(recipientPhone, reminderMessage);
+
+  return {
+    success: true,
+    message: `WhatsApp fee reminder sent successfully to ${recipientPhone}`,
+  };
+};
+
+// 7. Manual One-Click Bulk Class Fee Reminders Trigger (Admin Action)
+const sendClassFeeRemindersFromDB = async (classId: string) => {
+  const pendingInvoices = await prisma.studentInvoice.findMany({
+    where: {
+      status: {
+        in: [PaymentStatus.PENDING, PaymentStatus.PARTIAL],
+      },
+      student: {
+        classId: classId,
+      },
+    },
+    include: {
+      student: {
+        include: {
+          parent: true,
+        },
+      },
+    },
+  });
+
+  if (pendingInvoices.length === 0) {
+    return {
+      success: true,
+      sentCount: 0,
+      message: "No pending invoices found for this class.",
+    };
+  }
+
+  let sentCount = 0;
+
+  for (const invoice of pendingInvoices) {
+    const recipientPhone = getRecipientPhone(invoice.student);
+
+    if (recipientPhone) {
+      const studentName = `${invoice.student.firstName || ""} ${
+        invoice.student.lastName || ""
+      }`.trim();
+      const dueAmount = invoice.amount - invoice.paidAmount;
+      const dueDateFormatted = new Date(invoice.dueDate).toLocaleDateString(
+        "bn-BD",
+        { year: "numeric", month: "long", day: "numeric" },
+      );
+
+      const reminderMessage = generateFeeReminderTemplate(
+        studentName,
+        dueAmount,
+        invoice.invoiceNo,
+        dueDateFormatted,
+      );
+
+      await sendWhatsAppNotification(recipientPhone, reminderMessage);
+      sentCount++;
+    }
+  }
+
+  return {
+    success: true,
+    sentCount,
+    message: `WhatsApp reminders dispatched for ${sentCount} pending invoices.`,
+  };
+};
+
+// ----------------------------------------------------------------------
+// EXPORTS
+// ----------------------------------------------------------------------
 
 export const PaymentService = {
   createInvoiceIntoDB,
@@ -292,4 +434,9 @@ export const PaymentService = {
   sendPendingFeeRemindersFromDB,
   getStudentInvoicesFromDB,
   getAllInvoicesFromDB,
+  sendSingleInvoiceReminderFromDB,
+  sendClassFeeRemindersFromDB,
+  sendWhatsAppNotification,
+  getRecipientPhone,
+  formatBDPhone,
 };

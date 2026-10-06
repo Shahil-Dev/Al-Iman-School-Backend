@@ -48,7 +48,7 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
         date: attendanceDate,
         status: item.status,
       },
-    })
+    }),
   );
 
   const result = await prisma.$transaction(operations);
@@ -58,11 +58,13 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
     .filter((item) => item.status && item.status.toUpperCase() === "ABSENT")
     .map((item) => item.studentId);
 
-  console.log(`📡 [Attendance Service] Total ABSENT students found: ${absentStudentIds.length}`);
+  console.log(
+    `📡 [Attendance Service] Total ABSENT students found: ${absentStudentIds.length}`,
+  );
 
   if (absentStudentIds.length > 0) {
-    // Asynchronous non-blocking background task
-    (async () => {
+    // ⚡ INSTANT DISPATCH: Executed on next tick without freezing/canceling process
+    setImmediate(async () => {
       try {
         const absentStudents = await prisma.studentProfile.findMany({
           where: {
@@ -80,31 +82,35 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
         const secretKey = process.env.MICROSERVICE_SECRET_KEY;
 
         if (!microserviceUrl) {
-          console.error("❌ WHATSAPP_MICROSERVICE_URL is missing in environment variables!");
+          console.error(
+            "❌ WHATSAPP_MICROSERVICE_URL is missing in environment variables!",
+          );
           return;
         }
 
         for (const student of absentStudents as any[]) {
-          // Extract parent phone with proper Prisma relation name (parent)
           const rawPhone =
-            student.parent?.phone ||
-            student.phone ||
-            student.altPhone;
+            student.parent?.phone || student.phone || student.altPhone;
 
           if (!rawPhone) {
-            console.warn(`⚠️ [WhatsApp Warning] No phone number found for student: ${student.firstName} ${student.lastName}`);
+            console.warn(
+              `⚠️ [WhatsApp Warning] No phone number found for student: ${student.firstName} ${student.lastName}`,
+            );
             continue;
           }
 
           const formattedPhone = formatBDPhone(rawPhone);
-          const studentName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
+          const studentName =
+            `${student.firstName || ""} ${student.lastName || ""}`.trim();
           const className = student.class?.name || "N/A";
           const rollNo = student.rollNo ?? "N/A";
 
-          // 💬 Exact requested English WhatsApp message format
+          // 💬 WhatsApp message format
           const message = `Dear Parent, Your child ${studentName} (Roll: ${rollNo}, Class: ${className}) was marked ABSENT today (${date}) at Al-Iman School. Please contact administration if you have any query.`;
 
-          console.log(`🛫 [Dispatching Attendance WA Message] To: ${formattedPhone} | Student: ${studentName}`);
+          console.log(
+            `🛫 [Dispatching Attendance WA Message] To: ${formattedPhone} | Student: ${studentName}`,
+          );
 
           try {
             const res = await axios.post(
@@ -118,21 +124,27 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
                   "x-secret-key": secretKey,
                   "Content-Type": "application/json",
                 },
-              }
+                timeout: 5000, // 5 seconds timeout to prevent pending locks
+              },
             );
 
-            console.log(`✅ [WhatsApp Attendance Success] To: ${formattedPhone} | Response: ${res.data?.message || "Dispatched"}`);
+            console.log(
+              `✅ [WhatsApp Attendance Success] To: ${formattedPhone} | Response: ${res.data?.message || "Dispatched"}`,
+            );
           } catch (msgErr: any) {
             console.error(
               `❌ [WhatsApp Attendance HTTP Error] Student: ${studentName} | Phone: ${formattedPhone} | Error:`,
-              msgErr?.response?.data || msgErr?.message
+              msgErr?.response?.data || msgErr?.message,
             );
           }
         }
       } catch (err) {
-        console.error("❌ Error in WhatsApp attendance notification dispatch loop:", err);
+        console.error(
+          "❌ Error in WhatsApp attendance notification dispatch loop:",
+          err,
+        );
       }
-    })();
+    });
   }
 
   return result;
@@ -142,7 +154,7 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
 const getSectionAttendanceFromDB = async (
   classId: string,
   sectionId: string,
-  date: string
+  date: string,
 ) => {
   const targetDate = new Date(date);
 
@@ -174,7 +186,7 @@ const getSectionAttendanceFromDB = async (
   });
 
   const attendanceMap = new Map(
-    attendanceRecords.map((att) => [att.studentId, att.status])
+    attendanceRecords.map((att) => [att.studentId, att.status]),
   );
 
   const result = students.map((student) => ({
@@ -209,7 +221,9 @@ const getStudentAttendanceSummaryFromDB = async (studentId: string) => {
   });
 
   const percentage =
-    totalRecords > 0 ? ((presentCount / totalRecords) * 100).toFixed(2) : "100.00";
+    totalRecords > 0
+      ? ((presentCount / totalRecords) * 100).toFixed(2)
+      : "100.00";
 
   return {
     totalRecords,
@@ -220,8 +234,94 @@ const getStudentAttendanceSummaryFromDB = async (studentId: string) => {
   };
 };
 
+// 4. Manual One-Click Resend Absent WhatsApp Alert (Admin Action)
+const sendAbsentNotificationForDateFromDB = async (
+  classId: string,
+  sectionId: string,
+  date: string,
+) => {
+  const targetDate = new Date(date);
+
+  const absentRecords = await prisma.attendance.findMany({
+    where: {
+      classId,
+      sectionId,
+      date: targetDate,
+      status: "ABSENT",
+    },
+    include: {
+      student: {
+        include: {
+          parent: true,
+        },
+      },
+    },
+  });
+
+  if (absentRecords.length === 0) {
+    return {
+      success: true,
+      sentCount: 0,
+      message: "No absent students found for the selected date and class.",
+    };
+  }
+
+  const rawBaseUrl = process.env.WHATSAPP_MICROSERVICE_URL || "";
+  const microserviceUrl = rawBaseUrl.replace(/\/+$/, "");
+  const secretKey = process.env.MICROSERVICE_SECRET_KEY;
+
+  if (!microserviceUrl) {
+    throw new Error(
+      "WHATSAPP_MICROSERVICE_URL is missing in environment variables!",
+    );
+  }
+
+  let sentCount = 0;
+
+  for (const record of absentRecords) {
+    const student = record.student;
+    const rawPhone = student.parent?.phone || student.phone || student.altPhone;
+
+    if (!rawPhone) continue;
+
+    const formattedPhone = formatBDPhone(rawPhone);
+    const studentName =
+      `${student.firstName || ""} ${student.lastName || ""}`.trim();
+    const rollNo = student.rollNo ?? "N/A";
+
+    const message = `Dear Parent, Your child ${studentName} (Roll: ${rollNo}) was marked ABSENT today (${date}) at Al-Iman School. Please contact administration if you have any query.`;
+
+    try {
+      await axios.post(
+        `${microserviceUrl}/send-message`,
+        { phone: formattedPhone, message },
+        {
+          headers: {
+            "x-secret-key": secretKey,
+            "Content-Type": "application/json",
+          },
+          timeout: 5000,
+        },
+      );
+      sentCount++;
+    } catch (msgErr: any) {
+      console.error(
+        `❌ Failed to resend absent message to ${formattedPhone}:`,
+        msgErr?.message,
+      );
+    }
+  }
+
+  return {
+    success: true,
+    sentCount,
+    message: `Absent WhatsApp notifications sent to ${sentCount} guardians.`,
+  };
+};
+
 export const AttendanceService = {
   takeAttendanceIntoDB,
   getSectionAttendanceFromDB,
   getStudentAttendanceSummaryFromDB,
+  sendAbsentNotificationForDateFromDB,
 };
