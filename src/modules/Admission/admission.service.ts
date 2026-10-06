@@ -8,6 +8,11 @@ import {
 } from "./admission.interface";
 import prisma from "../../lib/prisma";
 import { sendEmail } from "../../utils/sendEmail";
+import { sendWhatsAppAdmissionNotification } from "../whatsapp/whatsapp.service";
+import {
+  generateStudentCode,
+  generateStudentPin,
+} from "../Students/student.utils";
 
 // 1. Submit Admission Application
 const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
@@ -63,6 +68,7 @@ const approveAdmissionInDB = async (
 ) => {
   const application = await prisma.admissionApplication.findUnique({
     where: { id: applicationId },
+    include: { class: true },
   });
 
   if (!application) {
@@ -87,7 +93,7 @@ const approveAdmissionInDB = async (
     targetSectionId = defaultSection.id;
   }
 
-  // Determine Target Roll Number (Ensure Integer & prevent unique constraint failure)
+  // Determine Target Roll Number
   let targetRollNo: number = payload?.rollNo ? Number(payload.rollNo) : 0;
   if (!targetRollNo || isNaN(targetRollNo)) {
     const lastStudent = await prisma.studentProfile.findFirst({
@@ -101,14 +107,12 @@ const approveAdmissionInDB = async (
   }
 
   const defaultPassword = "Student@123456";
-  const defaultPin = "123456"; 
+  const defaultPin = generateStudentPin();
   const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
-  // Generating Standard Unique IDs according to StudentProfile Schema
-  const randomNum = Math.floor(1000 + Math.random() * 9000);
-  const currentYear = new Date().getFullYear().toString().slice(-2);
-  const studentCode = `STU-${currentYear}-${randomNum}`; 
-  const studentIdNo = `ID-${Date.now().toString().slice(-6)}`; 
+  // Generating Standard Unique Student Code using official utility
+  const studentCode = await generateStudentCode();
+  const studentIdNo = studentCode;
 
   // Name Parsing Safely
   const nameParts = (application.studentName || "Student").trim().split(" ");
@@ -117,7 +121,7 @@ const approveAdmissionInDB = async (
 
   // Transaction Execution: User -> Student Profile -> Update Application
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Existing User Check to prevent unique constraint error on email
+    // 1. Existing User Check
     let user = await tx.user.findUnique({
       where: { email: application.email },
     });
@@ -177,6 +181,10 @@ const approveAdmissionInDB = async (
         sectionId: targetSectionId,
         rollNo: targetRollNo,
       },
+      include: {
+        class: true,
+        section: true,
+      },
     });
 
     // 3. Update Admission Application Status to APPROVED
@@ -186,6 +194,20 @@ const approveAdmissionInDB = async (
     });
 
     return { user, studentProfile, updatedApplication };
+  });
+
+  // 🔴 WhatsApp Notification Dispatch (Non-blocking)
+  const targetPhone =
+    application.guardianPhone || application.phone || application.altPhone;
+  sendWhatsAppAdmissionNotification({
+    phone: targetPhone ?? "",
+    studentName: application.studentName,
+    className:
+      result.studentProfile.class?.name || application.class?.name || "N/A",
+    sectionName: result.studentProfile.section?.name || "",
+    studentCode,
+    studentIdNo,
+    pin: defaultPin,
   });
 
   // Email Notification (Non-blocking)
@@ -271,7 +293,11 @@ const getAllApplicationsFromDB = async (query: any) => {
     andConditions.push({ classId });
   }
 
-  if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== "") {
+  if (
+    searchTerm &&
+    typeof searchTerm === "string" &&
+    searchTerm.trim() !== ""
+  ) {
     andConditions.push({
       OR: [
         { studentName: { contains: searchTerm, mode: "insensitive" } },
