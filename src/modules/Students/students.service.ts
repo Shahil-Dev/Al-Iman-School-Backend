@@ -111,20 +111,26 @@ const getAllStudentsFromDB = async (query: Record<string, any>) => {
   return result;
 };
 
+/**
+ * Fetch a single student profile by ID or userId safely
+ */
 const getSingleStudentFromDB = async (id: string) => {
-  const result = await prisma.studentProfile.findUnique({
-    where: { id },
+  const result = await prisma.studentProfile.findFirst({
+    where: {
+      OR: [{ id: id }, { userId: id }],
+    },
     include: {
       user: { select: { id: true, email: true, role: true } },
       class: true,
       section: true,
       parent: true,
       attendances: { take: 30, orderBy: { date: "desc" } },
-      marks: { include: { exam: true, subject: true } },
+      marks: true,
       documents: true,
       invoices: { orderBy: { createdAt: "desc" } },
     },
   });
+
   if (!result) {
     throw new Error("Student profile not found!");
   }
@@ -132,16 +138,21 @@ const getSingleStudentFromDB = async (id: string) => {
 };
 
 const updateStudentInDB = async (id: string, payload: Partial<ICreateStudentInput>) => {
-  const isExist = await prisma.studentProfile.findUnique({ where: { id } });
+  const isExist = await prisma.studentProfile.findFirst({
+    where: { OR: [{ id }, { userId: id }] },
+  });
+
   if (!isExist) {
     throw new Error("Student profile not found!");
   }
+
   const updateData: any = { ...payload };
   if (payload.dob) {
     updateData.dob = new Date(payload.dob);
   }
+
   const result = await prisma.studentProfile.update({
-    where: { id },
+    where: { id: isExist.id },
     data: updateData,
     include: {
       class: true,
@@ -153,21 +164,24 @@ const updateStudentInDB = async (id: string, payload: Partial<ICreateStudentInpu
 };
 
 const deleteStudentFromDB = async (id: string) => {
-  const student = await prisma.studentProfile.findUnique({
-    where: { id },
-    select: { userId: true },
+  const student = await prisma.studentProfile.findFirst({
+    where: { OR: [{ id }, { userId: id }] },
+    select: { id: true, userId: true },
   });
+
   if (!student) {
     throw new Error("Student profile not found!");
   }
+
   if (student.userId) {
     const result = await prisma.user.delete({
       where: { id: student.userId },
     });
     return result;
   }
+
   const result = await prisma.studentProfile.delete({
-    where: { id },
+    where: { id: student.id },
   });
   return result;
 };
