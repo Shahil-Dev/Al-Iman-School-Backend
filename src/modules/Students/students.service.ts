@@ -35,6 +35,10 @@ const createStudentIntoDB = async (payload: ICreateStudentInput) => {
       class: { select: { id: true, name: true } },
       section: { select: { id: true, name: true } },
       parent: true,
+      attendances: {
+        take: 30,
+        orderBy: { date: "desc" },
+      },
     },
   });
 
@@ -58,7 +62,7 @@ const createStudentIntoDB = async (payload: ICreateStudentInput) => {
 };
 
 /**
- * Fetch all students with optional filters
+ * Fetch all students with optional filters & recent attendance logs
  */
 const getAllStudentsFromDB = async (query: Record<string, any>) => {
   const { searchTerm, classId, sectionId, parentId, userId } = query;
@@ -105,6 +109,10 @@ const getAllStudentsFromDB = async (query: Record<string, any>) => {
       class: { select: { id: true, name: true } },
       section: { select: { id: true, name: true } },
       parent: true,
+      attendances: {
+        take: 30,
+        orderBy: { date: "desc" },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -112,19 +120,26 @@ const getAllStudentsFromDB = async (query: Record<string, any>) => {
 };
 
 /**
- * Fetch a single student profile by ID or userId safely
+ * Fetch a single student profile by ID, userId, or studentCode safely with full details
  */
-const getSingleStudentFromDB = async (id: string) => {
+const getSingleStudentFromDB = async (identifier: string) => {
   const result = await prisma.studentProfile.findFirst({
     where: {
-      OR: [{ id: id }, { userId: id }],
+      OR: [
+        { id: identifier },
+        { userId: identifier },
+        { studentCode: identifier },
+      ],
     },
     include: {
       user: { select: { id: true, email: true, role: true } },
       class: true,
       section: true,
       parent: true,
-      attendances: { take: 30, orderBy: { date: "desc" } },
+      attendances: {
+        take: 60,
+        orderBy: { date: "desc" },
+      },
       marks: true,
       documents: true,
       invoices: { orderBy: { createdAt: "desc" } },
@@ -137,7 +152,13 @@ const getSingleStudentFromDB = async (id: string) => {
   return result;
 };
 
-const updateStudentInDB = async (id: string, payload: Partial<ICreateStudentInput>) => {
+/**
+ * Update existing student profile in DB
+ */
+const updateStudentInDB = async (
+  id: string,
+  payload: Partial<ICreateStudentInput>
+) => {
   const isExist = await prisma.studentProfile.findFirst({
     where: { OR: [{ id }, { userId: id }] },
   });
@@ -158,11 +179,18 @@ const updateStudentInDB = async (id: string, payload: Partial<ICreateStudentInpu
       class: true,
       section: true,
       parent: true,
+      attendances: {
+        take: 30,
+        orderBy: { date: "desc" },
+      },
     },
   });
   return result;
 };
 
+/**
+ * Delete student profile and associated user account if present
+ */
 const deleteStudentFromDB = async (id: string) => {
   const student = await prisma.studentProfile.findFirst({
     where: { OR: [{ id }, { userId: id }] },

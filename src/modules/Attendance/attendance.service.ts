@@ -15,7 +15,7 @@ export interface ITakeAttendancePayload {
 
 // Helper: Format Bangladesh phone numbers into WhatsApp compatible standard (880...)
 const formatBDPhone = (phone: string): string => {
-  let clean = phone.replace(/\D/g, ""); // Remove non-digit characters
+  let clean = phone.replace(/\D/g, "");
   if (clean.startsWith("0")) {
     clean = `88${clean}`;
   } else if (!clean.startsWith("88") && clean.length === 10) {
@@ -24,12 +24,24 @@ const formatBDPhone = (phone: string): string => {
   return clean;
 };
 
-// 1. Take / Update Bulk Attendance into DB & Trigger WhatsApp Alerts for ABSENT Students
+// Helper: Normalize date string to Start of Day UTC
+const getStartOfDay = (dateStr: string) => {
+  const d = new Date(dateStr);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+};
+
+const getEndOfDay = (dateStr: string) => {
+  const d = new Date(dateStr);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+};
+
+// 1. Take / Update Bulk Attendance into DB & Trigger WhatsApp Alerts
 const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
   const { date, classId, sectionId, attendances } = payload;
-  const attendanceDate = new Date(date);
+  const attendanceDate = getStartOfDay(date);
 
-  // DB Operations for Bulk Upsert
   const operations = attendances.map((item) =>
     prisma.attendance.upsert({
       where: {
@@ -48,22 +60,17 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
         date: attendanceDate,
         status: item.status,
       },
-    }),
+    })
   );
 
   const result = await prisma.$transaction(operations);
 
-  // 🔴 Trigger WhatsApp Dispatch for ABSENT Students
+  // Trigger WhatsApp Dispatch for ABSENT Students
   const absentStudentIds = attendances
     .filter((item) => item.status && item.status.toUpperCase() === "ABSENT")
     .map((item) => item.studentId);
 
-  console.log(
-    `📡 [Attendance Service] Total ABSENT students found: ${absentStudentIds.length}`,
-  );
-
   if (absentStudentIds.length > 0) {
-    // ⚡ INSTANT DISPATCH: Executed on next tick without freezing/canceling process
     setImmediate(async () => {
       try {
         const absentStudents = await prisma.studentProfile.findMany({
@@ -78,71 +85,42 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
         });
 
         const rawBaseUrl = process.env.WHATSAPP_MICROSERVICE_URL || "";
-        const microserviceUrl = rawBaseUrl.replace(/\/+$/, ""); // Trim trailing slash
+        const microserviceUrl = rawBaseUrl.replace(/\/+$/, "");
         const secretKey = process.env.MICROSERVICE_SECRET_KEY;
 
-        if (!microserviceUrl) {
-          console.error(
-            "❌ WHATSAPP_MICROSERVICE_URL is missing in environment variables!",
-          );
-          return;
-        }
+        if (!microserviceUrl) return;
 
         for (const student of absentStudents as any[]) {
           const rawPhone =
             student.parent?.phone || student.phone || student.altPhone;
 
-          if (!rawPhone) {
-            console.warn(
-              `⚠️ [WhatsApp Warning] No phone number found for student: ${student.firstName} ${student.lastName}`,
-            );
-            continue;
-          }
+          if (!rawPhone) continue;
 
           const formattedPhone = formatBDPhone(rawPhone);
-          const studentName =
-            `${student.firstName || ""} ${student.lastName || ""}`.trim();
+          const studentName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
           const className = student.class?.name || "N/A";
           const rollNo = student.rollNo ?? "N/A";
 
-          // 💬 WhatsApp message format
           const message = `Dear Parent, Your child ${studentName} (Roll: ${rollNo}, Class: ${className}) was marked ABSENT today (${date}) at Al-Iman School. Please contact administration if you have any query.`;
 
-          console.log(
-            `🛫 [Dispatching Attendance WA Message] To: ${formattedPhone} | Student: ${studentName}`,
-          );
-
           try {
-            const res = await axios.post(
+            await axios.post(
               `${microserviceUrl}/send-message`,
-              {
-                phone: formattedPhone,
-                message,
-              },
+              { phone: formattedPhone, message },
               {
                 headers: {
                   "x-secret-key": secretKey,
                   "Content-Type": "application/json",
                 },
-                timeout: 5000, // 5 seconds timeout to prevent pending locks
-              },
-            );
-
-            console.log(
-              `✅ [WhatsApp Attendance Success] To: ${formattedPhone} | Response: ${res.data?.message || "Dispatched"}`,
+                timeout: 5000,
+              }
             );
           } catch (msgErr: any) {
-            console.error(
-              `❌ [WhatsApp Attendance HTTP Error] Student: ${studentName} | Phone: ${formattedPhone} | Error:`,
-              msgErr?.response?.data || msgErr?.message,
-            );
+            console.error(`❌ [WhatsApp Error] ${studentName}:`, msgErr?.message);
           }
         }
       } catch (err) {
-        console.error(
-          "❌ Error in WhatsApp attendance notification dispatch loop:",
-          err,
-        );
+        console.error("❌ Error in WhatsApp notification loop:", err);
       }
     });
   }
@@ -154,18 +132,14 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
 const getSectionAttendanceFromDB = async (
   classId: string,
   sectionId: string,
-  date: string,
+  date: string
 ) => {
-  const targetDate = new Date(date);
+  const startDate = getStartOfDay(date);
+  const endDate = getEndOfDay(date);
 
   const students = await prisma.studentProfile.findMany({
-    where: {
-      classId,
-      sectionId,
-    },
-    orderBy: {
-      rollNo: "asc",
-    },
+    where: { classId, sectionId },
+    orderBy: { rollNo: "asc" },
     select: {
       id: true,
       studentCode: true,
@@ -181,15 +155,18 @@ const getSectionAttendanceFromDB = async (
     where: {
       classId,
       sectionId,
-      date: targetDate,
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
     },
   });
 
   const attendanceMap = new Map(
-    attendanceRecords.map((att) => [att.studentId, att.status]),
+    attendanceRecords.map((att) => [att.studentId, att.status])
   );
 
-  const result = students.map((student) => ({
+  return students.map((student) => ({
     studentId: student.id,
     studentCode: student.studentCode,
     studentIdNo: student.studentIdNo,
@@ -198,27 +175,43 @@ const getSectionAttendanceFromDB = async (
     photoUrl: student.photoUrl,
     status: attendanceMap.get(student.id) || "PRESENT",
   }));
-
-  return result;
 };
 
-// 3. Get Attendance Summary for Individual Student
-const getStudentAttendanceSummaryFromDB = async (studentId: string) => {
-  const totalRecords = await prisma.attendance.count({
-    where: { studentId },
+// 3. Get Attendance Summary & Detailed Logs for Individual Student
+const getStudentAttendanceSummaryFromDB = async (identifier: string) => {
+  // 🔍 Step A: Find the actual StudentProfile ID (handles Profile ID, User ID, or Student Code)
+  const student = await prisma.studentProfile.findFirst({
+    where: {
+      OR: [
+        { id: identifier },
+        { userId: identifier },
+        { studentCode: identifier },
+      ],
+    },
+    select: { id: true, firstName: true, lastName: true },
   });
 
-  const presentCount = await prisma.attendance.count({
-    where: { studentId, status: "PRESENT" },
+  if (!student) {
+    throw new Error("Student profile not found!");
+  }
+
+  const targetStudentId = student.id;
+
+  // 🔍 Step B: Fetch all attendance records for this student
+  const logs = await prisma.attendance.findMany({
+    where: { studentId: targetStudentId },
+    orderBy: { date: "desc" },
+    select: {
+      id: true,
+      date: true,
+      status: true,
+    },
   });
 
-  const absentCount = await prisma.attendance.count({
-    where: { studentId, status: "ABSENT" },
-  });
-
-  const lateCount = await prisma.attendance.count({
-    where: { studentId, status: "LATE" },
-  });
+  const totalRecords = logs.length;
+  const presentCount = logs.filter((r) => r.status === "PRESENT").length;
+  const absentCount = logs.filter((r) => r.status === "ABSENT").length;
+  const lateCount = logs.filter((r) => r.status === "LATE").length;
 
   const percentage =
     totalRecords > 0
@@ -226,96 +219,15 @@ const getStudentAttendanceSummaryFromDB = async (studentId: string) => {
       : "100.00";
 
   return {
-    totalRecords,
-    presentCount,
-    absentCount,
-    lateCount,
-    percentage: Number(percentage),
-  };
-};
-
-// 4. Manual One-Click Resend Absent WhatsApp Alert (Admin Action)
-const sendAbsentNotificationForDateFromDB = async (
-  classId: string,
-  sectionId: string,
-  date: string,
-) => {
-  const targetDate = new Date(date);
-
-  const absentRecords = await prisma.attendance.findMany({
-    where: {
-      classId,
-      sectionId,
-      date: targetDate,
-      status: "ABSENT",
+    studentId: targetStudentId,
+    summary: {
+      totalRecords,
+      presentCount,
+      absentCount,
+      lateCount,
+      percentage: Number(percentage),
     },
-    include: {
-      student: {
-        include: {
-          parent: true,
-        },
-      },
-    },
-  });
-
-  if (absentRecords.length === 0) {
-    return {
-      success: true,
-      sentCount: 0,
-      message: "No absent students found for the selected date and class.",
-    };
-  }
-
-  const rawBaseUrl = process.env.WHATSAPP_MICROSERVICE_URL || "";
-  const microserviceUrl = rawBaseUrl.replace(/\/+$/, "");
-  const secretKey = process.env.MICROSERVICE_SECRET_KEY;
-
-  if (!microserviceUrl) {
-    throw new Error(
-      "WHATSAPP_MICROSERVICE_URL is missing in environment variables!",
-    );
-  }
-
-  let sentCount = 0;
-
-  for (const record of absentRecords) {
-    const student = record.student;
-    const rawPhone = student.parent?.phone || student.phone || student.altPhone;
-
-    if (!rawPhone) continue;
-
-    const formattedPhone = formatBDPhone(rawPhone);
-    const studentName =
-      `${student.firstName || ""} ${student.lastName || ""}`.trim();
-    const rollNo = student.rollNo ?? "N/A";
-
-    const message = `Dear Parent, Your child ${studentName} (Roll: ${rollNo}) was marked ABSENT today (${date}) at Al-Iman School. Please contact administration if you have any query.`;
-
-    try {
-      await axios.post(
-        `${microserviceUrl}/send-message`,
-        { phone: formattedPhone, message },
-        {
-          headers: {
-            "x-secret-key": secretKey,
-            "Content-Type": "application/json",
-          },
-          timeout: 5000,
-        },
-      );
-      sentCount++;
-    } catch (msgErr: any) {
-      console.error(
-        `❌ Failed to resend absent message to ${formattedPhone}:`,
-        msgErr?.message,
-      );
-    }
-  }
-
-  return {
-    success: true,
-    sentCount,
-    message: `Absent WhatsApp notifications sent to ${sentCount} guardians.`,
+    records: logs, // 👈 ফ্রন্টএন্ডে ক্যালেন্ডার/লিস্ট দেখানোর জন্য
   };
 };
 
@@ -323,5 +235,4 @@ export const AttendanceService = {
   takeAttendanceIntoDB,
   getSectionAttendanceFromDB,
   getStudentAttendanceSummaryFromDB,
-  sendAbsentNotificationForDateFromDB,
 };
