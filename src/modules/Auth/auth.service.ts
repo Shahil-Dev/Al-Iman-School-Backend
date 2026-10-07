@@ -72,7 +72,7 @@ const loginUser = async (payload: TLoginUser) => {
   };
 };
 
-// 2. Student Direct Login (Only Student Code or Student ID, NO PIN)
+// 2. Student Direct Login (Only Student Code or Student ID)
 const studentLogin = async (payload: TStudentLogin) => {
   const { studentCode } = payload;
 
@@ -173,7 +173,7 @@ const getMyProfileFromDB = async (userId: string) => {
   throw new Error("User profile not found!");
 };
 
-// 4. Change Password Functionality (For Users)
+// 4. Change Password Functionality
 const changePasswordInDB = async (
   userId: string,
   payload: { oldPassword: string; newPassword: string },

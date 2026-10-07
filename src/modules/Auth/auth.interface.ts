@@ -4,7 +4,7 @@ export type TLoginUser = {
 };
 
 export type TStudentLogin = {
-  studentCode: string; 
+  studentCode: string;
 };
 
 export type TLoginResponse = {

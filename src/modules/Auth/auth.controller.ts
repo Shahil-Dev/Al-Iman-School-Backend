@@ -3,6 +3,7 @@ import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import { AuthService } from "./auth.service";
 
+// 1. General Login
 const loginUser = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthService.loginUser(req.body);
 
@@ -14,6 +15,19 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// 2. Student Direct Login (Added Missing Controller)
+const studentLogin = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthService.studentLogin(req.body);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Student logged in successfully!",
+    data: result,
+  });
+});
+
+// 3. Get My Profile
 const getMyProfile = catchAsync(async (req: Request, res: Response) => {
   const user = (req as any).user;
   const result = await AuthService.getMyProfileFromDB(user.id);
@@ -26,6 +40,7 @@ const getMyProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// 4. Change Password
 const changePassword = catchAsync(async (req: Request, res: Response) => {
   const user = (req as any).user;
   const result = await AuthService.changePasswordInDB(user.id, req.body);
@@ -40,6 +55,7 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
 
 export const AuthController = {
   loginUser,
+  studentLogin,
   getMyProfile,
   changePassword,
 };
