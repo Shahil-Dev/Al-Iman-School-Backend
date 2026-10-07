@@ -13,6 +13,12 @@ router.post(
   AuthController.loginUser,
 );
 
+router.post(
+  "/student-login",
+  validateRequest(AuthValidation.loginValidationSchema),
+  AuthController.loginUser,
+);
+
 router.get(
   "/me",
   authGuard(
