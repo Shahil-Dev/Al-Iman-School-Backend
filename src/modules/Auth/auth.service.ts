@@ -1,21 +1,18 @@
 import bcrypt from "bcrypt";
 import { JwtHelpers } from "../../utils/jwtHelpers";
-import { TLoginUser } from "./auth.interface";
+import { TLoginUser, TStudentLogin } from "./auth.interface";
 import prisma from "../../lib/prisma";
 
+// 1. General User Login (Admin, Teacher, Parent, Accounts)
 const loginUser = async (payload: TLoginUser) => {
   const { email, password } = payload;
 
-  // 1. Find user by Email, Student Code, Student ID, Phone, Teacher Phone/EmployeeID, or Parent Phone
   const user = await prisma.user.findFirst({
     where: {
       OR: [
         { email: email },
-        { studentProfile: { studentCode: email } },
-        { studentProfile: { studentIdNo: email } },
-        { studentProfile: { phone: email } },
         { teacherProfile: { employeeId: email } },
-        { teacherProfile: { phone: email } }, // 👈 Added Teacher Phone Number Search
+        { teacherProfile: { phone: email } },
         { parentProfile: { phone: email } },
       ],
     },
@@ -23,7 +20,7 @@ const loginUser = async (payload: TLoginUser) => {
       studentProfile: true,
       teacherProfile: {
         include: {
-          classTeacherOf: true, // Includes class teacher assignment data if exists
+          classTeacherOf: true,
         },
       },
       parentProfile: true,
@@ -34,26 +31,22 @@ const loginUser = async (payload: TLoginUser) => {
     throw new Error("User does not exist!");
   }
 
-  // 2. Check if the user is blocked
   if (user.isBlocked) {
     throw new Error("This user account has been blocked!");
   }
 
-  // 3. Check if the user account is approved (Pending Teacher / Student Guard)
   if (!user.isApproved) {
     throw new Error(
       "Your account is pending Admin Approval! Please wait for confirmation.",
     );
   }
 
-  // 4. Password / PIN match checking
   const isPasswordMatched = await bcrypt.compare(password, user.password);
 
   if (!isPasswordMatched) {
     throw new Error("Password does not match!");
   }
 
-  // 5. Create Access Token
   const jwtPayload = {
     id: user.id,
     email: user.email,
@@ -79,7 +72,54 @@ const loginUser = async (payload: TLoginUser) => {
   };
 };
 
-// Get Logged In User Profile (/auth/me)
+// 2. Student Direct Login (Only Student Code or Student ID, NO PIN)
+const studentLogin = async (payload: TStudentLogin) => {
+  const { studentCode } = payload;
+
+  // Search by studentCode OR studentIdNo
+  const student = await prisma.studentProfile.findFirst({
+    where: {
+      OR: [
+        { studentCode: studentCode },
+        { studentIdNo: studentCode },
+      ],
+    },
+    include: {
+      class: true,
+      section: true,
+      user: true,
+    },
+  });
+
+  if (!student) {
+    throw new Error("Student account not found with provided Code or ID!");
+  }
+
+  // Create JWT Token for Student
+  const jwtPayload = {
+    id: student.userId || student.id,
+    studentProfileId: student.id,
+    studentCode: student.studentCode,
+    role: "STUDENT",
+  };
+
+  const accessToken = JwtHelpers.createToken(
+    jwtPayload,
+    process.env.JWT_SECRET || "secret_key",
+    process.env.JWT_EXPIRES_IN || "1d",
+  );
+
+  return {
+    accessToken,
+    user: {
+      id: student.userId || student.id,
+      role: "STUDENT",
+      studentProfile: student,
+    },
+  };
+};
+
+// 3. Get Logged In User Profile (/auth/me)
 const getMyProfileFromDB = async (userId: string) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -93,11 +133,12 @@ const getMyProfileFromDB = async (userId: string) => {
       studentProfile: {
         include: {
           class: true,
+          section: true,
         },
       },
       teacherProfile: {
         include: {
-          classTeacherOf: true, // 👈 Includes assigned class in /auth/me profile
+          classTeacherOf: true,
         },
       },
       parentProfile: {
@@ -108,21 +149,37 @@ const getMyProfileFromDB = async (userId: string) => {
     },
   });
 
-  if (!user) {
-    throw new Error("User profile not found!");
+  if (user) {
+    return user;
   }
 
-  return user;
+  const studentProfile = await prisma.studentProfile.findUnique({
+    where: { id: userId },
+    include: {
+      class: true,
+      section: true,
+      parent: true,
+    },
+  });
+
+  if (studentProfile) {
+    return {
+      id: studentProfile.id,
+      role: "STUDENT",
+      studentProfile,
+    };
+  }
+
+  throw new Error("User profile not found!");
 };
 
-// Change User Password
+// 4. Change Password Functionality (For Users)
 const changePasswordInDB = async (
   userId: string,
   payload: { oldPassword: string; newPassword: string },
 ) => {
   const { oldPassword, newPassword } = payload;
 
-  // 1. Find the user
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
@@ -131,33 +188,22 @@ const changePasswordInDB = async (
     throw new Error("User does not exist!");
   }
 
-  // 2. Verify current password
   const isPasswordMatched = await bcrypt.compare(oldPassword, user.password);
   if (!isPasswordMatched) {
     throw new Error("Old password does not match!");
   }
 
-  // 3. Hash new password & update
   const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-  const updatedUser = await prisma.user.update({
+  return await prisma.user.update({
     where: { id: userId },
-    data: {
-      password: hashedPassword,
-    },
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      updatedAt: true,
-    },
+    data: { password: hashedPassword },
+    select: { id: true, email: true, role: true, updatedAt: true },
   });
-
-  return updatedUser;
 };
 
 export const AuthService = {
   loginUser,
+  studentLogin,
   getMyProfileFromDB,
   changePasswordInDB,
 };

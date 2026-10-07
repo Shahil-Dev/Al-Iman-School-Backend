@@ -11,6 +11,15 @@ const loginValidationSchema = z.object({
   }),
 });
 
+// Student login validation without PIN
+const studentLoginValidationSchema = z.object({
+  body: z.object({
+    studentCode: z.string({
+      message: "Student Code or Student ID is required!",
+    }),
+  }),
+});
+
 const changePasswordValidationSchema = z.object({
   body: z.object({
     oldPassword: z.string({
@@ -26,5 +35,6 @@ const changePasswordValidationSchema = z.object({
 
 export const AuthValidation = {
   loginValidationSchema,
+  studentLoginValidationSchema,
   changePasswordValidationSchema,
 };
