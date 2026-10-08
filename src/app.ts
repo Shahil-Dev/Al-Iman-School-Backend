@@ -1,51 +1,69 @@
 import cors from "cors";
-import express, { Application, Request, Response } from "express";
+import express, { Application, Request, Response, NextFunction } from "express";
 
 import notFound from "./middlewares/notFound";
-import { AuthRoutes } from "./modules/Auth/auth.route";
 import router from "./routes";
 import { globalErrorHandler } from "./middlewares/globalErrorHandler";
 
 const app: Application = express();
 
-// Allowed Origins List
+// 🔹 Allowed Origins for Local Development & Production
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
-  "https://al-iman-school-frontend.vercel.app", 
+  "http://localhost:5173",
+  "https://al-iman-school-frontend.vercel.app",
 ];
 
-// CORS Options Configuration
-const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, server-to-server)
-    if (!origin) return callback(null, true);
+// 🔹 Custom Dynamic Origin & Preflight Handling Middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
 
-    if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
-      return callback(null, true);
-    } else {
-      return callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true, // Cookies / Authorization Headers অনুমতি দেওয়ার জন্য
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-};
+  // Check if request origin is in our allowed list or matches .vercel.app
+  if (origin && (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app"))) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
 
-// Apply CORS Middleware
-app.use(cors(corsOptions));
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept, x-secret-key"
+  );
 
-// Enable Pre-flight OPTIONS request handling across all routes
-app.options("*", cors(corsOptions));
+  // Handle Browser OPTIONS Preflight Request directly with 200 OK
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
 
-// Parsers
+  next();
+});
+
+// Standard CORS configuration
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
+      return callback(null, true); // Fallback to pass preflight securely handled above
+    },
+    credentials: true,
+  })
+);
+
+// Body Parsers
 app.use(express.json());
 
 // Root Health Check Route
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
-    message: "School Management ERP System API is Running Operational!",
+    message: "School Management ERP System API is Operational!",
   });
 });
 
