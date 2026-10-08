@@ -71,35 +71,36 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
     .map((item) => item.studentId);
 
   if (absentStudentIds.length > 0) {
-    // Process WhatsApp alert dispatching
-    (async () => {
-      try {
-        const absentStudents = await prisma.studentProfile.findMany({
-          where: {
-            id: { in: absentStudentIds },
-          },
-          include: {
-            class: true,
-            section: true,
-            parent: true,
-          },
-        });
+    try {
+      const absentStudents = await prisma.studentProfile.findMany({
+        where: {
+          id: { in: absentStudentIds },
+        },
+        include: {
+          class: true,
+          section: true,
+          parent: true,
+        },
+      });
 
-        const rawBaseUrl = process.env.WHATSAPP_MICROSERVICE_URL || "";
-        const microserviceUrl = rawBaseUrl.replace(/\/+$/, "");
-        const secretKey = process.env.MICROSERVICE_SECRET_KEY;
+      const rawBaseUrl = process.env.WHATSAPP_MICROSERVICE_URL || "";
+      const microserviceUrl = rawBaseUrl.replace(/\/+$/, "");
+      const secretKey = process.env.MICROSERVICE_SECRET_KEY;
 
-        if (!microserviceUrl) {
-          console.warn("⚠️ WHATSAPP_MICROSERVICE_URL not configured in env");
-          return;
-        }
+      console.log(`📡 [WhatsApp Trigger] Sending alerts for ${absentStudents.length} absent student(s)...`);
+      console.log(`🔗 Microservice Target URL: ${microserviceUrl}`);
 
-        for (const student of absentStudents as any[]) {
-          // Priority: Admission/Student Profile Phone -> Linked Parent Phone -> Alt Phone
+      if (microserviceUrl) {
+        // Send WhatsApp messages concurrently before finishing serverless execution
+        const dispatchPromises = absentStudents.map(async (student: any) => {
+          // Phone Priority: Student Profile Phone -> Parent Phone -> Alt Phone
           const rawPhone =
             student.phone || student.parent?.phone || student.altPhone;
 
-          if (!rawPhone) continue;
+          if (!rawPhone) {
+            console.warn(`⚠️ [WhatsApp Skipped] No phone found for student: ${student.firstName}`);
+            return;
+          }
 
           const formattedPhone = formatBDPhone(rawPhone);
           const studentName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
@@ -109,7 +110,7 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
           const message = `Dear Parent, Your child ${studentName} (Roll: ${rollNo}, Class: ${className}) was marked ABSENT today (${date}) at Al-Iman School. Please contact administration if you have any query.`;
 
           try {
-            await axios.post(
+            const response = await axios.post(
               `${microserviceUrl}/send-message`,
               { phone: formattedPhone, message },
               {
@@ -117,18 +118,23 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
                   "x-secret-key": secretKey,
                   "Content-Type": "application/json",
                 },
-                timeout: 5000,
+                timeout: 8000,
               }
             );
-            console.log(`✅ [WhatsApp Sent] ${studentName} (${formattedPhone})`);
+            console.log(`✅ [WhatsApp Dispatch Success] ${studentName} (${formattedPhone}):`, response.data?.message);
           } catch (msgErr: any) {
-            console.error(`❌ [WhatsApp Error] ${studentName}:`, msgErr?.message);
+            console.error(`❌ [WhatsApp Dispatch Failed] ${studentName} (${formattedPhone}):`, msgErr?.response?.data || msgErr?.message);
           }
-        }
-      } catch (err) {
-        console.error("❌ Error in WhatsApp notification loop:", err);
+        });
+
+        // Wait for all messages to dispatch before resolving
+        await Promise.allSettled(dispatchPromises);
+      } else {
+        console.error("❌ WHATSAPP_MICROSERVICE_URL is missing in Vercel Environment Variables!");
       }
-    })();
+    } catch (err) {
+      console.error("❌ Error in WhatsApp notification process:", err);
+    }
   }
 
   return result;
