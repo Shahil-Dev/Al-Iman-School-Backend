@@ -24,23 +24,23 @@ const formatBDPhone = (phone: string): string => {
   return clean;
 };
 
-// Helper: Normalize date string to Start of Day UTC
-const getStartOfDay = (dateStr: string) => {
-  const d = new Date(dateStr);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
+// Helper: Normalize YYYY-MM-DD date safely without time shifting
+const parseDateToUTC = (dateStr: string) => {
+  const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 };
 
-const getEndOfDay = (dateStr: string) => {
-  const d = new Date(dateStr);
-  d.setUTCHours(23, 59, 59, 999);
-  return d;
+const getStartOfDayUTC = (dateStr: string) => parseDateToUTC(dateStr);
+
+const getEndOfDayUTC = (dateStr: string) => {
+  const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
 };
 
 // 1. Take / Update Bulk Attendance into DB & Trigger WhatsApp Alerts
 const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
   const { date, classId, sectionId, attendances } = payload;
-  const attendanceDate = getStartOfDay(date);
+  const attendanceDate = getStartOfDayUTC(date);
 
   const operations = attendances.map((item) =>
     prisma.attendance.upsert({
@@ -71,7 +71,8 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
     .map((item) => item.studentId);
 
   if (absentStudentIds.length > 0) {
-    setImmediate(async () => {
+    // Process WhatsApp alert dispatching
+    (async () => {
       try {
         const absentStudents = await prisma.studentProfile.findMany({
           where: {
@@ -88,11 +89,15 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
         const microserviceUrl = rawBaseUrl.replace(/\/+$/, "");
         const secretKey = process.env.MICROSERVICE_SECRET_KEY;
 
-        if (!microserviceUrl) return;
+        if (!microserviceUrl) {
+          console.warn("⚠️ WHATSAPP_MICROSERVICE_URL not configured in env");
+          return;
+        }
 
         for (const student of absentStudents as any[]) {
+          // Priority: Admission/Student Profile Phone -> Linked Parent Phone -> Alt Phone
           const rawPhone =
-            student.parent?.phone || student.phone || student.altPhone;
+            student.phone || student.parent?.phone || student.altPhone;
 
           if (!rawPhone) continue;
 
@@ -115,6 +120,7 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
                 timeout: 5000,
               }
             );
+            console.log(`✅ [WhatsApp Sent] ${studentName} (${formattedPhone})`);
           } catch (msgErr: any) {
             console.error(`❌ [WhatsApp Error] ${studentName}:`, msgErr?.message);
           }
@@ -122,7 +128,7 @@ const takeAttendanceIntoDB = async (payload: ITakeAttendancePayload) => {
       } catch (err) {
         console.error("❌ Error in WhatsApp notification loop:", err);
       }
-    });
+    })();
   }
 
   return result;
@@ -134,8 +140,8 @@ const getSectionAttendanceFromDB = async (
   sectionId: string,
   date: string
 ) => {
-  const startDate = getStartOfDay(date);
-  const endDate = getEndOfDay(date);
+  const startDate = getStartOfDayUTC(date);
+  const endDate = getEndOfDayUTC(date);
 
   const students = await prisma.studentProfile.findMany({
     where: { classId, sectionId },
@@ -179,7 +185,6 @@ const getSectionAttendanceFromDB = async (
 
 // 3. Get Attendance Summary & Detailed Logs for Individual Student
 const getStudentAttendanceSummaryFromDB = async (identifier: string) => {
-  // 🔍 Step A: Find the actual StudentProfile ID (handles Profile ID, User ID, or Student Code)
   const student = await prisma.studentProfile.findFirst({
     where: {
       OR: [
@@ -197,7 +202,6 @@ const getStudentAttendanceSummaryFromDB = async (identifier: string) => {
 
   const targetStudentId = student.id;
 
-  // 🔍 Step B: Fetch all attendance records for this student
   const logs = await prisma.attendance.findMany({
     where: { studentId: targetStudentId },
     orderBy: { date: "desc" },
@@ -215,19 +219,25 @@ const getStudentAttendanceSummaryFromDB = async (identifier: string) => {
 
   const percentage =
     totalRecords > 0
-      ? ((presentCount / totalRecords) * 100).toFixed(2)
-      : "100.00";
+      ? Number(((presentCount / totalRecords) * 100).toFixed(2))
+      : 100;
 
   return {
     studentId: targetStudentId,
+    totalDays: totalRecords,
+    presentDays: presentCount,
+    absentDays: absentCount,
+    lateDays: lateCount,
+    percentage,
+    logs,
     summary: {
       totalRecords,
       presentCount,
       absentCount,
       lateCount,
-      percentage: Number(percentage),
+      percentage,
     },
-    records: logs, // 👈 ফ্রন্টএন্ডে ক্যালেন্ডার/লিস্ট দেখানোর জন্য
+    records: logs,
   };
 };
 
