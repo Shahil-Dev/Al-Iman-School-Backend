@@ -122,7 +122,6 @@ const generateMonthlyInvoicesInDB = async (payload: TGenerateMonthlyInvoicesPayl
   let createdCount = 0;
 
   for (const student of students) {
-    // Total tuition/monthly fee calculated from class FeeStructure
     const totalAmount = student.class.feeStructures.reduce(
       (sum, fs) => sum + fs.amount,
       0
@@ -134,7 +133,7 @@ const generateMonthlyInvoicesInDB = async (payload: TGenerateMonthlyInvoicesPayl
       1000 + Math.random() * 9000
     )}`;
 
-    const invoice = await prisma.studentInvoice.create({
+    await prisma.studentInvoice.create({
       data: {
         invoiceNo,
         studentId: student.id,
@@ -268,9 +267,8 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
       },
     });
 
-    let updatedInvoice = invoice;
+    let updatedInvoice: any = invoice;
 
-    // If payment is Cash / Immediately Approved, update Invoice status
     if (isCash) {
       const updatedPaidAmount = invoice.paidAmount + amount;
       const isFullyPaid = updatedPaidAmount >= invoice.amount;
@@ -280,6 +278,13 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
         data: {
           paidAmount: updatedPaidAmount,
           status: isFullyPaid ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
+        },
+        include: {
+          student: {
+            include: {
+              parent: true,
+            },
+          },
         },
       });
     }
@@ -335,7 +340,7 @@ const approveOrRejectPaymentInDB = async (payload: TApprovePaymentPayload) => {
       },
     });
 
-    let updatedInvoice = transaction.invoice;
+    let updatedInvoice: any = transaction.invoice;
 
     if (status === TransactionStatus.APPROVED) {
       const newPaidAmount = transaction.invoice.paidAmount + transaction.amount;
@@ -346,6 +351,13 @@ const approveOrRejectPaymentInDB = async (payload: TApprovePaymentPayload) => {
         data: {
           paidAmount: newPaidAmount,
           status: isFullyPaid ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
+        },
+        include: {
+          student: {
+            include: {
+              parent: true,
+            },
+          },
         },
       });
     }
@@ -400,7 +412,6 @@ const getPendingApprovalsFromDB = async () => {
 const getOverdueInvoicesFromDB = async () => {
   const currentDate = new Date();
 
-  // Auto-mark overdue invoices whose due date has passed
   await prisma.studentInvoice.updateMany({
     where: {
       dueDate: { lt: currentDate },
