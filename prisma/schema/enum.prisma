@@ -28,6 +28,7 @@ enum PaymentStatus {
   PENDING
   PAID
   PARTIAL
+  OVERDUE
   FAILED
   CANCELLED
 }
@@ -36,7 +37,14 @@ enum PaymentMethod {
   CASH
   BKASH
   NAGAD
+  BANK
   SSLCOMMERZ
+}
+
+enum TransactionStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
 }
 
 enum NoticeTarget {

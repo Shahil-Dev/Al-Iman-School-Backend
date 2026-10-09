@@ -1,23 +1,24 @@
 model FeeHead {
   id            String         @id @default(uuid())
-  title         String // Monthly Tuition, Exam Fee, Admission Fee
+  title         String         // e.g. Monthly Tuition, Exam Fee, Admission Fee
   feeStructures FeeStructure[]
 
-  createdAt DateTime @default(now())
+  createdAt     DateTime       @default(now())
 
   @@map("fee_heads")
 }
 
 model FeeStructure {
-  id        String  @id @default(uuid())
+  id        String   @id @default(uuid())
   classId   String
-  class     Class   @relation(fields: [classId], references: [id])
+  class     Class    @relation(fields: [classId], references: [id])
   feeHeadId String
-  feeHead   FeeHead @relation(fields: [feeHeadId], references: [id])
+  feeHead   FeeHead  @relation(fields: [feeHeadId], references: [id])
   amount    Float
 
   createdAt DateTime @default(now())
 
+  @@unique([classId, feeHeadId])
   @@map("fee_structures")
 }
 
@@ -32,22 +33,25 @@ model StudentInvoice {
   dueDate      DateTime
   transactions PaymentTransaction[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   @@map("student_invoices")
 }
 
 model PaymentTransaction {
-  id            String         @id @default(uuid())
+  id            String            @id @default(uuid())
   invoiceId     String
-  invoice       StudentInvoice @relation(fields: [invoiceId], references: [id])
+  invoice       StudentInvoice    @relation(fields: [invoiceId], references: [id])
   amount        Float
   method        PaymentMethod
   transactionId String?
-  status        PaymentStatus  @default(PENDING)
+  receiptUrl    String?           // Payment receipt image URL
+  status        TransactionStatus @default(PENDING_APPROVAL)
+  note          String?           // Optional approval note or rejection reason
 
-  createdAt DateTime @default(now())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@map("payment_transactions")
 }

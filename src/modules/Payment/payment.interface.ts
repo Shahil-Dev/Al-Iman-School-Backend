@@ -1,4 +1,10 @@
-import { PaymentMethod } from '@prisma/client';
+import { PaymentMethod, TransactionStatus } from "@prisma/client";
+
+export type TCreateFeeStructurePayload = {
+  classId: string;
+  feeHeadId: string;
+  amount: number;
+};
 
 export type TCreateInvoicePayload = {
   studentId: string;
@@ -6,9 +12,21 @@ export type TCreateInvoicePayload = {
   dueDate: string;
 };
 
+export type TGenerateMonthlyInvoicesPayload = {
+  monthTitle: string; // e.g. "Monthly Tuition Fee - October 2026"
+  dueDate: string;    // e.g. "2026-10-10"
+};
+
 export type TCollectPaymentPayload = {
   invoiceId: string;
   amount: number;
   method: PaymentMethod;
-  transactionId?: string; // Trx ID provided by bKash/Nagad or Manual input
+  transactionId?: string;
+  receiptUrl?: string; // Receipt screenshot URL
+};
+
+export type TApprovePaymentPayload = {
+  transactionId: string;
+  status: TransactionStatus; // APPROVED or REJECTED
+  note?: string;
 };
