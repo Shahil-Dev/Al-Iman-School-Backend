@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
 import { ExamService } from "./exam.service";
+import { MarkService } from "../Mark/mark.service";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 
 const createExam = catchAsync(async (req: Request, res: Response) => {
-  // Fixed method name: createExamIntoDB
   const result = await ExamService.createExamIntoDB(req.body);
   sendResponse(res, {
     statusCode: 201,
@@ -15,7 +15,6 @@ const createExam = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllExams = catchAsync(async (req: Request, res: Response) => {
-  // Fixed: Passing req.query to filter correctly
   const result = await ExamService.getAllExamsFromDB(req.query);
   sendResponse(res, {
     statusCode: 200,
@@ -26,7 +25,6 @@ const getAllExams = catchAsync(async (req: Request, res: Response) => {
 });
 
 const saveStudentMark = catchAsync(async (req: Request, res: Response) => {
-  // Fixed method name: saveStudentMarkIntoDB
   const result = await ExamService.saveStudentMarkIntoDB(req.body);
   sendResponse(res, {
     statusCode: 200,
@@ -38,10 +36,13 @@ const saveStudentMark = catchAsync(async (req: Request, res: Response) => {
 
 const getStudentMarksheet = catchAsync(async (req: Request, res: Response) => {
   const { examId, studentId } = req.params;
-  const result = await ExamService.getStudentMarksheetFromDB(
+  
+  // Directly calling MarkService to ensure structured student, exam & marks data
+  const result = await MarkService.getStudentMarksheetFromDB(
     examId as string,
     studentId as string
   );
+
   sendResponse(res, {
     statusCode: 200,
     success: true,
