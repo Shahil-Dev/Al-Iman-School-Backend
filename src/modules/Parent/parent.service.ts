@@ -312,9 +312,8 @@ const updateParentProfileInDB = async (
 
 const linkStudentToParentInDB = async (
   parentUserId: string,
-  payload: { studentCode: string; pin: string | number }
+  payload: { studentCode: string }
 ) => {
-  // 1. Find Parent Profile by Logged-in User ID
   const parentProfile = await prisma.parentProfile.findUnique({
     where: { userId: parentUserId },
   });
@@ -323,30 +322,37 @@ const linkStudentToParentInDB = async (
     throw new Error("Parent profile not found!");
   }
 
-  const cleanStudentCode = payload.studentCode.trim();
-  const cleanPin = String(payload.pin).trim(); // Always convert PIN to String
+  if (!payload.studentCode) {
+    throw new Error("Student code is required!");
+  }
 
-  // 2. Search Student Profile by Code/ID and String PIN
+  const cleanStudentCode = payload.studentCode.trim();
+
   const student = await prisma.studentProfile.findFirst({
     where: {
       OR: [
         { studentCode: cleanStudentCode },
         { studentIdNo: cleanStudentCode },
       ],
-      pin: cleanPin, // Directly query as String
+    },
+    include: {
+      class: true,
+      section: true,
     },
   });
 
   if (!student) {
-    throw new Error("Invalid Student Code/ID or PIN!");
+    throw new Error("No student found with this Student Code or ID!");
   }
 
-  // 3. Check if already linked to another parent
+  if (student.parentId === parentProfile.id) {
+    throw new Error("This student is already added to your dashboard!");
+  }
+
   if (student.parentId && student.parentId !== parentProfile.id) {
     throw new Error("This student is already linked to another parent profile!");
   }
 
-  // 4. Link Student to Parent
   const updatedStudent = await prisma.studentProfile.update({
     where: { id: student.id },
     data: { parentId: parentProfile.id },
