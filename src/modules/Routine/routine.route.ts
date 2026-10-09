@@ -5,12 +5,14 @@ import { RoutineController } from "./routine.controller";
 
 const router = express.Router();
 
+// 1. Create Routine Slot
 router.post(
   "/create-slot",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
-  RoutineController.createRoutineSlot,
+  RoutineController.createRoutineSlot
 );
 
+// 2. Fetch Class Routine Slot
 router.get(
   "/:classId/:sectionId",
   authGuard(
@@ -18,9 +20,23 @@ router.get(
     Role.ACCOUNTS,
     Role.TEACHER,
     Role.STUDENT,
-    Role.PARENT,
+    Role.PARENT
   ),
-  RoutineController.getClassRoutine,
+  RoutineController.getClassRoutine
+);
+
+// 3. Update Routine Slot Route (Fixed path collision)
+router.patch(
+  "/slot/:id",
+  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
+  RoutineController.updateRoutineSlot
+);
+
+// 4. Delete Routine Slot Route (Fixed path collision)
+router.delete(
+  "/slot/:id",
+  authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
+  RoutineController.deleteRoutineSlot
 );
 
 export const RoutineRoutes = router;

@@ -17,7 +17,7 @@ const getClassRoutine = catchAsync(async (req: Request, res: Response) => {
   const { classId, sectionId } = req.params;
   const result = await RoutineService.getClassRoutineFromDB(
     classId as string,
-    sectionId as string,
+    sectionId as string
   );
   sendResponse(res, {
     statusCode: 200,
@@ -27,7 +27,31 @@ const getClassRoutine = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateRoutineSlot = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await RoutineService.updateRoutineSlotInDB(id as string, req.body);
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Routine slot updated successfully!",
+    data: result,
+  });
+});
+
+const deleteRoutineSlot = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await RoutineService.deleteRoutineSlotFromDB(id as string);
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Routine slot deleted successfully!",
+    data: result,
+  });
+});
+
 export const RoutineController = {
   createRoutineSlot,
   getClassRoutine,
+  updateRoutineSlot,
+  deleteRoutineSlot,
 };
