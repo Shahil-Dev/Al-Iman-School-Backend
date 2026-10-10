@@ -1,4 +1,8 @@
-import { PaymentMethod, PaymentStatus, TransactionStatus } from "@prisma/client";
+import {
+  PaymentMethod,
+  PaymentStatus,
+  TransactionStatus,
+} from "@prisma/client";
 import axios from "axios";
 import prisma from "../../lib/prisma";
 import {
@@ -31,20 +35,21 @@ const generateFeeReminderTemplate = (
   studentName: string,
   amount: number,
   invoiceNo: string,
-  dueDateFormatted: string
+  dueDateFormatted: string,
 ): string => {
   return `আসসালামু আলাইকুম ওয়া রহমাতুল্লাহ।
 
 সম্মানিত অভিভাবক/অভিভাবিকা,
-আমাদের প্রতিষ্ঠানের মূল লক্ষ্য হলো শিক্ষার্থীদের ইসলামিক মূল্যবোধ ও আধুনিক শিক্ষার সমন্বয়ে এক একজন আদর্শ মানুষ হিসেবে গড়ে তোলা। এই শিক্ষা কার্যক্রম সুন্দর, সাবলীল ও সুশৃঙ্খলভাবে পরিচালনার পেছনে প্রতিষ্ঠানের খরচ পরিচালনা এবং শিক্ষক-কর্মচারীদের মাসিক পারিশ্রমিক নিয়মিত প্রদান করা অত্যন্ত জরুরি।
+আমাদের প্রতিষ্ঠানের মূল লক্ষ্য হলো শিক্ষার্থীদের ইসলামিক মূল্যবোধ ও আধুনিক শিক্ষার সমন্বয়ে এক একজন আদর্শ মানুষ হিসেবে গড়ে তোলা। এই শিক্ষা কার্যক্রম সুন্দর, সাবলীল ও সুশৃঙ্খলভাবে পরিচালনার পেছনে প্রতিষ্ঠানের খরচ পরিচালনা এবং শিক্ষক-কর্মচারীদের মাসিক পারিশ্রমিক নিয়মিত প্রদান করা অত্যন্ত জরুরি। 
+
+আপনার সন্তান ${studentName}-এর শিক্ষা অর্জন যেন নিরবচ্ছিন্ন থাকে এবং প্রতিষ্ঠানটি যেন সুচারুরূপে পরিচালিত হতে পারে, সে উদ্দেশ্যে চলতি মাসের ফি/বকেয়া ফি বাবদ ৳${amount} (ইনভয়েস নং: ${invoiceNo}) আগামী ${dueDateFormatted}-এর মধ্যে পরিশোধ করার জন্য বিশেষভাবে অনুরোধ করা হচ্ছে।
 
 পবিত্র কুরআনে আল্লাহ তাআলা ইরশাদ করেছেন:
 "হে মুমিনগণ! তোমরা অঙ্গীকারসমূহ পূর্ণ করো।" — (সূরা আল-মায়িদাহ, আয়াত: ১)
 
-আপনার সন্তান ${studentName}-এর শিক্ষা অর্জন যেন নিরবচ্ছিন্ন থাকে এবং প্রতিষ্ঠানটি যেন সুচারুরূপে পরিচালিত হতে পারে, সে উদ্দেশ্যে চলতি মাসের ফি/বকেয়া ফি বাবদ ৳${amount} (ইনভয়েস নং: ${invoiceNo}) আগামী ${dueDateFormatted}-এর মধ্যে পরিশোধ করার জন্য বিশেষভাবে অনুরোধ করা হচ্ছে।
 
 —
-আল-ইমান স্কুল অ্যান্ড কলেজ`;
+আল-ঈমান স্কুল এন্ড কলেজ`;
 };
 
 const sendWhatsAppNotification = async (phone: string, message: string) => {
@@ -71,7 +76,7 @@ const sendWhatsAppNotification = async (phone: string, message: string) => {
           "x-secret-key": secretKey,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   } catch (err: unknown) {
     const errorMsg = axios.isAxiosError(err)
@@ -106,7 +111,9 @@ const setFeeStructureInDB = async (payload: TCreateFeeStructurePayload) => {
 };
 
 // 2. Automated Bulk Monthly Invoice Generator (Class-wise Fee Structure mapping)
-const generateMonthlyInvoicesInDB = async (payload: TGenerateMonthlyInvoicesPayload) => {
+const generateMonthlyInvoicesInDB = async (
+  payload: TGenerateMonthlyInvoicesPayload,
+) => {
   const students = await prisma.studentProfile.findMany({
     include: {
       class: {
@@ -124,13 +131,13 @@ const generateMonthlyInvoicesInDB = async (payload: TGenerateMonthlyInvoicesPayl
   for (const student of students) {
     const totalAmount = student.class.feeStructures.reduce(
       (sum, fs) => sum + fs.amount,
-      0
+      0,
     );
 
     if (totalAmount <= 0) continue;
 
     const invoiceNo = `INV-${Date.now().toString().slice(-6)}-${Math.floor(
-      1000 + Math.random() * 9000
+      1000 + Math.random() * 9000,
     )}`;
 
     await prisma.studentInvoice.create({
@@ -147,7 +154,8 @@ const generateMonthlyInvoicesInDB = async (payload: TGenerateMonthlyInvoicesPayl
 
     const recipientPhone = getRecipientPhone(student);
     if (recipientPhone) {
-      const studentName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
+      const studentName =
+        `${student.firstName || ""} ${student.lastName || ""}`.trim();
       const dueDateFormatted = dueDate.toLocaleDateString("bn-BD", {
         year: "numeric",
         month: "long",
@@ -158,7 +166,7 @@ const generateMonthlyInvoicesInDB = async (payload: TGenerateMonthlyInvoicesPayl
         studentName,
         totalAmount,
         invoiceNo,
-        dueDateFormatted
+        dueDateFormatted,
       );
 
       await sendWhatsAppNotification(recipientPhone, message);
@@ -191,18 +199,22 @@ const createInvoiceIntoDB = async (payload: TCreateInvoicePayload) => {
 
   const recipientPhone = getRecipientPhone(result.student);
   if (recipientPhone) {
-    const studentName = `${result.student.firstName || ""} ${result.student.lastName || ""}`.trim();
-    const dueDateFormatted = new Date(payload.dueDate).toLocaleDateString("bn-BD", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    const studentName =
+      `${result.student.firstName || ""} ${result.student.lastName || ""}`.trim();
+    const dueDateFormatted = new Date(payload.dueDate).toLocaleDateString(
+      "bn-BD",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      },
+    );
 
     const message = generateFeeReminderTemplate(
       studentName,
       payload.amount,
       invoiceNo,
-      dueDateFormatted
+      dueDateFormatted,
     );
 
     await sendWhatsAppNotification(recipientPhone, message);
@@ -241,7 +253,7 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
 
     if (existingTransaction) {
       throw new Error(
-        "এই ট্রানজেকশন আইডিটি (TrxID) ইতিমধ্যে ব্যবহার করা হয়েছে! সঠিক তথ্য প্রদান করুন।"
+        "এই ট্রানজেকশন আইডিটি (TrxID) ইতিমধ্যে ব্যবহার করা হয়েছে! সঠিক তথ্য প্রদান করুন।",
       );
     }
   }
@@ -295,8 +307,11 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
   const recipientPhone = getRecipientPhone(invoice.student);
 
   if (recipientPhone && isCash) {
-    const studentName = `${invoice.student.firstName || ""} ${invoice.student.lastName || ""}`.trim();
-    const confirmMessage = `আসসালামু আলাইকুম। আল-ইমান স্কুল অ্যান্ড কলেজ।\n\nধন্যবাদ! আপনার সন্তান ${studentName}-এর ফি সফলভাবে ক্যাশে গ্রহণ করা হয়েছে।\n\nইনভয়েস নং: ${invoice.invoiceNo}\nপরিশোধিত অর্থ: ৳${amount}\nপেমেন্ট মেথড: CASH\nরসিদ আইডি: ${finalTrxId}`;
+    const studentName =
+      `${invoice.student.firstName || ""} ${invoice.student.lastName || ""}`.trim();
+    const confirmMessage = `আসসালামু আলাইকুম।\n\nধন্যবাদ! আপনার সন্তান ${studentName}-এর ফি সফলভাবে ক্যাশে গ্রহণ করা হয়েছে।\n\nইনভয়েস নং: ${invoice.invoiceNo}\nপরিশোধিত অর্থ: ৳${amount}\nপেমেন্ট মেথড: CASH\nরসিদ আইডি: ${finalTrxId}। 
+    ধন্যবাদান্তে,
+আল-ঈমান স্কুল এন্ড কলেজ।`;
 
     await sendWhatsAppNotification(recipientPhone, confirmMessage);
   }
@@ -368,13 +383,17 @@ const approveOrRejectPaymentInDB = async (payload: TApprovePaymentPayload) => {
   const recipientPhone = getRecipientPhone(transaction.invoice.student);
 
   if (recipientPhone) {
-    const studentName = `${transaction.invoice.student.firstName || ""} ${transaction.invoice.student.lastName || ""}`.trim();
+    const studentName =
+      `${transaction.invoice.student.firstName || ""} ${transaction.invoice.student.lastName || ""}`.trim();
 
     if (status === TransactionStatus.APPROVED) {
-      const msg = `আসসালামু আলাইকুম। আল-ইমান স্কুল অ্যান্ড কলেজ।\n\nআলহামদুলিল্লাহ! আপনার জমা দেওয়া পেমেন্ট রসিদ ভেরিফাই করে অনুমোদন করা হয়েছে।\n\nশিক্ষার্থী: ${studentName}\nইনভয়েস নং: ${transaction.invoice.invoiceNo}\nপরিশোধিত অর্থ: ৳${transaction.amount}\nমেথড: ${transaction.method}\nট্রানজেকশন আইডি: ${transaction.transactionId}`;
+      const msg = `আসসালামু আলাইকুম।\n\nআলহামদুলিল্লাহ! আপনার জমা দেওয়া পেমেন্ট রসিদ ভেরিফাই করে অনুমোদন করা হয়েছে।\n\nশিক্ষার্থী: ${studentName}\nইনভয়েস নং: ${transaction.invoice.invoiceNo}\nপরিশোধিত অর্থ: ৳${transaction.amount}\nমেথড: ${transaction.method}\nট্রানজেকশন আইডি: ${transaction.transactionId}।
+      ধন্যবাদান্তে,
+আল-ঈমান স্কুল এন্ড কলেজ।
+      `;
       await sendWhatsAppNotification(recipientPhone, msg);
     } else if (status === TransactionStatus.REJECTED) {
-      const msg = `আসসালামু আলাইকুম। আল-ইমান স্কুল অ্যান্ড কলেজ।\n\nদুঃখিত, আপনার জমা দেওয়া পেমেন্ট তথ্য/রসিদ ভেরিফিকেশনে গৃহীত হয়নি।\n\nকারণ/নোট: ${note || "অসঠিক ট্রানজেকশন আইডি বা রসিদ"}\nঅনুগ্রহ করে সঠিক তথ্য প্রদান করুন বা অফিসে যোগাযোগ করুন।`;
+      const msg = `আসসালামু আলাইকুম।\n\nদুঃখিত, আপনার জমা দেওয়া পেমেন্ট তথ্য/রসিদ ভেরিফিকেশনে গৃহীত হয়নি।\n\nকারণ/নোট: ${note || "ভুল ট্রানজেকশন আইডি বা রসিদ"}\nঅনুগ্রহ করে সঠিক তথ্য প্রদান করুন বা অফিসে যোগাযোগ করুন।`;
       await sendWhatsAppNotification(recipientPhone, msg);
     }
   }
@@ -422,7 +441,13 @@ const getOverdueInvoicesFromDB = async () => {
 
   return await prisma.studentInvoice.findMany({
     where: {
-      status: { in: [PaymentStatus.PENDING, PaymentStatus.PARTIAL, PaymentStatus.OVERDUE] },
+      status: {
+        in: [
+          PaymentStatus.PENDING,
+          PaymentStatus.PARTIAL,
+          PaymentStatus.OVERDUE,
+        ],
+      },
     },
     include: {
       student: {
@@ -441,7 +466,13 @@ const getOverdueInvoicesFromDB = async () => {
 const sendPendingFeeRemindersFromDB = async () => {
   const pendingInvoices = await prisma.studentInvoice.findMany({
     where: {
-      status: { in: [PaymentStatus.PENDING, PaymentStatus.PARTIAL, PaymentStatus.OVERDUE] },
+      status: {
+        in: [
+          PaymentStatus.PENDING,
+          PaymentStatus.PARTIAL,
+          PaymentStatus.OVERDUE,
+        ],
+      },
     },
     include: {
       student: {
@@ -455,19 +486,23 @@ const sendPendingFeeRemindersFromDB = async () => {
   for (const invoice of pendingInvoices) {
     const recipientPhone = getRecipientPhone(invoice.student);
     if (recipientPhone) {
-      const studentName = `${invoice.student.firstName || ""} ${invoice.student.lastName || ""}`.trim();
+      const studentName =
+        `${invoice.student.firstName || ""} ${invoice.student.lastName || ""}`.trim();
       const dueAmount = invoice.amount - invoice.paidAmount;
-      const dueDateFormatted = new Date(invoice.dueDate).toLocaleDateString("bn-BD", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+      const dueDateFormatted = new Date(invoice.dueDate).toLocaleDateString(
+        "bn-BD",
+        {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        },
+      );
 
       const reminderMessage = generateFeeReminderTemplate(
         studentName,
         dueAmount,
         invoice.invoiceNo,
-        dueDateFormatted
+        dueDateFormatted,
       );
 
       await sendWhatsAppNotification(recipientPhone, reminderMessage);
