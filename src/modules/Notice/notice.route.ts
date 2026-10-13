@@ -1,22 +1,28 @@
-import express from 'express';
-import { Role } from '@prisma/client';
-import authGuard from '../../middlewares/authGuard';
-import { NoticeController } from './notice.controller';
+import express from "express";
+import { Role } from "@prisma/client";
+import authGuard from "../../middlewares/authGuard";
+import { NoticeController } from "./notice.controller";
 
 const router = express.Router();
 
 router.post(
-  '/',
+  "/",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
-  NoticeController.createNotice
+  NoticeController.createNotice,
 );
 
-router.get('/', NoticeController.getAllNotices);
+router.get("/", NoticeController.getAllNotices);
 
 router.delete(
-  '/:id',
+  "/:id",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
-  NoticeController.deleteNotice
+  NoticeController.deleteNotice,
+);
+
+router.get(
+  "/",
+  authGuard(Role.SUPER_ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT),
+  NoticeController.getAllNotices,
 );
 
 export const NoticeRoutes = router;

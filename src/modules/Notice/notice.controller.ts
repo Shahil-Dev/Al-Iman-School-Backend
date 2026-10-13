@@ -7,7 +7,6 @@ import { NoticeTarget } from "@prisma/client";
 const createNotice = catchAsync(async (req: Request, res: Response) => {
   let { targetGroup, ...restData } = req.body;
 
-  // Map singular/frontend values to match Prisma enum plural values safely
   if (targetGroup) {
     const upperTarget = String(targetGroup).toUpperCase();
     if (upperTarget === "STUDENT") targetGroup = NoticeTarget.STUDENTS;
@@ -32,9 +31,12 @@ const createNotice = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllNotices = catchAsync(async (req: Request, res: Response) => {
+  // Assuming authGuard attaches user object (req.user) to the request
+  const user = (req as any).user; 
+  const userRole = user?.role;
   const { targetGroup } = req.query;
-  let formattedTarget = targetGroup as string;
 
+  let formattedTarget = targetGroup as string;
   if (formattedTarget) {
     const upperTarget = formattedTarget.toUpperCase();
     if (upperTarget === "STUDENT") formattedTarget = "STUDENTS";
@@ -42,7 +44,7 @@ const getAllNotices = catchAsync(async (req: Request, res: Response) => {
     else if (upperTarget === "PARENT") formattedTarget = "PARENTS";
   }
 
-  const result = await NoticeService.getAllNoticesFromDB(formattedTarget);
+  const result = await NoticeService.getAllNoticesFromDB(userRole, formattedTarget);
 
   sendResponse(res, {
     statusCode: 200,
