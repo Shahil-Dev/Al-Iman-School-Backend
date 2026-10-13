@@ -64,7 +64,7 @@ const saveMarkIntoDB = async (payload: TSaveMarkPayload) => {
   return result;
 };
 
-// 2. Bulk Mark Entry (For entire class / subject)
+// 2. Bulk Mark Entry
 const saveBulkMarksIntoDB = async (payload: TBulkSaveMarkPayload) => {
   const { examId, subjectId, marks } = payload;
 
@@ -125,7 +125,6 @@ const saveBulkMarksIntoDB = async (payload: TBulkSaveMarkPayload) => {
   return result;
 };
 
-// 3. Marksheet Generation (Fixed Data Structure)
 const getStudentMarksheetFromDB = async (examId: string, studentId: string) => {
   const marks = await prisma.mark.findMany({
     where: {
@@ -144,38 +143,7 @@ const getStudentMarksheetFromDB = async (examId: string, studentId: string) => {
     },
   });
 
-  if (!marks || marks.length === 0) {
-    return null;
-  }
-
-  let totalPoints = 0;
-  let isFailed = false;
-
-  marks.forEach((item) => {
-    if (item.grade === "F") {
-      isFailed = true;
-    }
-    totalPoints += item.gradePoint;
-  });
-
-  const gpa =
-    isFailed || marks.length === 0
-      ? 0.0
-      : Number((totalPoints / marks.length).toFixed(2));
-
-  // Extract student and exam information safely from the first record
-  const student = marks[0]?.student;
-  const exam = marks[0]?.exam;
-
-  return {
-    student,
-    exam,
-    marks,
-    totalObtainedMarks: marks.reduce((acc, curr) => acc + curr.totalMarks, 0),
-    gpa,
-    isPassed: !isFailed,
-    resultStatus: isFailed ? "Failed" : "Passed",
-  };
+  return marks || [];
 };
 
 export const MarkService = {
