@@ -16,7 +16,6 @@ const createNoticeInDB = async (payload: {
 const getAllNoticesFromDB = async (targetGroup?: string) => {
   const whereCondition: any = {};
 
-  // Fixed: Safe enum check so invalid query string doesn't crash Prisma
   if (
     targetGroup &&
     Object.values(NoticeTarget).includes(targetGroup as NoticeTarget)
