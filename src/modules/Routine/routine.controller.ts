@@ -14,7 +14,9 @@ const createRoutineSlot = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getClassRoutine = catchAsync(async (req: Request, res: Response) => {
-  const { classId, sectionId } = req.params;
+  // Changed from req.params to req.query to match ?classId=...&sectionId=...
+  const { classId, sectionId } = req.query;
+  
   const result = await RoutineService.getClassRoutineFromDB(
     classId as string,
     sectionId as string

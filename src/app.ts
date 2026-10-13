@@ -8,9 +8,7 @@ import { globalErrorHandler } from "./middlewares/globalErrorHandler";
 const app: Application = express();
 
 const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:5173",
+  
   "https://al-iman-school-frontend.vercel.app",
 ];
 

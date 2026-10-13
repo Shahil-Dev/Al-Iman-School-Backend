@@ -12,9 +12,9 @@ router.post(
   RoutineController.createRoutineSlot
 );
 
-// 2. Fetch Class Routine Slot
+// 2. Fetch Class Routine Slot via Query Parameters (e.g. /routines?classId=...&sectionId=...)
 router.get(
-  "/:classId/:sectionId",
+  "/",
   authGuard(
     Role.SUPER_ADMIN,
     Role.ACCOUNTS,
@@ -25,14 +25,14 @@ router.get(
   RoutineController.getClassRoutine
 );
 
-// 3. Update Routine Slot Route (Fixed path collision)
+// 3. Update Routine Slot Route
 router.patch(
   "/slot/:id",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
   RoutineController.updateRoutineSlot
 );
 
-// 4. Delete Routine Slot Route (Fixed path collision)
+// 4. Delete Routine Slot Route
 router.delete(
   "/slot/:id",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS, Role.TEACHER),
