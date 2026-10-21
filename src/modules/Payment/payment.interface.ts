@@ -22,6 +22,7 @@ export type TCollectPaymentPayload = {
   amount: number;
   method: PaymentMethod;
   transactionId?: string;
+  senderAccountNo?: string; // Bank account number the payer sent from
   receiptUrl?: string; // Receipt screenshot URL
 };
 

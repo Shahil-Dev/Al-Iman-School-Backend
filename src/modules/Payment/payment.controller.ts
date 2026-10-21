@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import { PaymentService } from "./payment.service";
+import { PaymentMethod, Role } from "@prisma/client";
+
 
 const setFeeStructure = catchAsync(async (req: Request, res: Response) => {
   const result = await PaymentService.setFeeStructureInDB(req.body);
@@ -34,6 +36,17 @@ const createInvoice = catchAsync(async (req: Request, res: Response) => {
 });
 
 const collectPayment = catchAsync(async (req: Request, res: Response) => {
+  const { role } = (req as any).user;
+
+  // Cash is recorded by school staff only; students/parents cannot self-approve
+  if (
+    req.body.method === PaymentMethod.CASH &&
+    role !== Role.SUPER_ADMIN &&
+    role !== Role.ACCOUNTS
+  ) {
+    throw new Error("Cash payments can only be recorded by the school office!");
+  }
+
   const result = await PaymentService.processPaymentInDB(req.body);
   sendResponse(res, {
     statusCode: 200,
@@ -75,6 +88,10 @@ const getOverdueInvoices = catchAsync(async (_req: Request, res: Response) => {
 
 const getStudentInvoices = catchAsync(async (req: Request, res: Response) => {
   const { studentId } = req.params;
+  await PaymentService.verifyInvoiceAccess(
+    (req as any).user,
+    studentId as string,
+  );
   const result = await PaymentService.getStudentInvoicesFromDB(studentId as string);
   sendResponse(res, {
     statusCode: 200,

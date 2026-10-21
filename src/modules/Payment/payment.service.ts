@@ -1,6 +1,7 @@
 import {
   PaymentMethod,
   PaymentStatus,
+  Role,
   TransactionStatus,
 } from "@prisma/client";
 import axios from "axios";
@@ -225,7 +226,7 @@ const createInvoiceIntoDB = async (payload: TCreateInvoicePayload) => {
 
 // 4. Collect Payment (Offline/Cash: APPROVED immediately; Online/Bank: PENDING_APPROVAL)
 const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
-  const { invoiceId, amount, method, transactionId, receiptUrl } = payload;
+  const {  invoiceId, amount, method, transactionId, receiptUrl, senderAccountNo } = payload;
 
   const invoice = await prisma.studentInvoice.findUnique({
     where: { id: invoiceId },
@@ -263,9 +264,9 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
     ? TransactionStatus.APPROVED
     : TransactionStatus.PENDING_APPROVAL;
 
-  const finalTrxId = transactionId
-    ? transactionId.trim()
-    : `CASH-${Date.now().toString().slice(-6)}`;
+  const finalTrxId =  transactionId
+  ? transactionId.trim()
+  : `${isCash ? "CASH" : "BANK"}-${Date.now().toString().slice(-6)}`;
 
   const result = await prisma.$transaction(async (tx) => {
     const transaction = await tx.paymentTransaction.create({
@@ -274,6 +275,7 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
         amount,
         method,
         transactionId: finalTrxId,
+        senderAccountNo: senderAccountNo || null,
         receiptUrl: receiptUrl || null,
         status: initialTrxStatus,
       },
@@ -510,6 +512,33 @@ const sendPendingFeeRemindersFromDB = async () => {
   }
 };
 
+// Ensure students/parents can only read invoices that belong to them
+const verifyInvoiceAccess = async (
+  user: { id: string; role: string },
+  studentId: string,
+) => {
+  if (user.role === Role.STUDENT) {
+    const own = await prisma.studentProfile.findFirst({
+      where: { id: studentId, OR: [{ userId: user.id }, { id: user.id }] },
+      select: { id: true },
+    });
+    if (!own) {
+      throw new Error("Unauthorized! You can only view your own invoices.");
+    }
+  }
+
+  if (user.role === Role.PARENT) {
+    const child = await prisma.studentProfile.findFirst({
+      where: { id: studentId, parent: { userId: user.id } },
+      select: { id: true },
+    });
+    if (!child) {
+      throw new Error("Unauthorized! This student is not linked to your account.");
+    }
+  }
+};
+
+
 // 9. Get Student Invoices
 const getStudentInvoicesFromDB = async (studentId: string) => {
   return await prisma.studentInvoice.findMany({
@@ -561,4 +590,5 @@ export const PaymentService = {
   sendWhatsAppNotification,
   getRecipientPhone,
   formatBDPhone,
+  verifyInvoiceAccess
 };

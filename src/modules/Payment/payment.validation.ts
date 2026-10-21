@@ -29,6 +29,7 @@ const collectPaymentValidationSchema = z.object({
     amount: z.number({ message: "Payment amount is required!" }).positive(),
     method: z.nativeEnum(PaymentMethod, { message: "Invalid payment method!" }),
     transactionId: z.string().optional(),
+    senderAccountNo: z.string().trim().optional(),
     receiptUrl: z.string().optional(),
   }),
 });
