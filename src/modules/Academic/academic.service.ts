@@ -49,8 +49,15 @@ const createAcademicSection = async (payload: TAcademicSection) => {
   });
 };
 
-const getAllAcademicSections = async () => {
+const getAllAcademicSections = async (classId?: string) => {
+  // Filter by class only when a valid classId is provided
+  const where =
+    classId && classId !== "undefined" && classId !== "ALL"
+      ? { classId }
+      : {};
+
   return await prisma.section.findMany({
+    where,
     include: {
       class: true,
     },

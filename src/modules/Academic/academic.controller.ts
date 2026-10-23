@@ -59,7 +59,10 @@ const createAcademicSection = catchAsync(async (req: Request, res: Response) => 
 });
 
 const getAllAcademicSections = catchAsync(async (req: Request, res: Response) => {
-  const result = await AcademicService.getAllAcademicSections();
+  const classId =
+    typeof req.query.classId === "string" ? req.query.classId : undefined;
+
+  const result = await AcademicService.getAllAcademicSections(classId);
 
   sendResponse(res, {
     statusCode: 200,
