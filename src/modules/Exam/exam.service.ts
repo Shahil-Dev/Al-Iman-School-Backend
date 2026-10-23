@@ -17,6 +17,11 @@ const getAllExamsFromDB = async (query: Record<string, any>) => {
 
   const result = await prisma.exam.findMany({
     where: whereConditions,
+    include: {
+      academicYear: {
+        select: { id: true, year: true, isCurrent: true },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
   return result;
