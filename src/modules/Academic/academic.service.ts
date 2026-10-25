@@ -86,6 +86,23 @@ const getAllAcademicSubjects = async () => {
   });
 };
 
+// Public, minimal class list; flags classes that already have a class teacher
+const getPublicClasses = async () => {
+  const [classes, assigned] = await Promise.all([
+    prisma.class.findMany({
+      select: { id: true, name: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.teacherProfile.findMany({
+      where: { classTeacherOfId: { not: null } },
+      select: { classTeacherOfId: true },
+    }),
+  ]);
+
+  const assignedIds = new Set(assigned.map((t) => t.classTeacherOfId));
+  return classes.map((c) => ({ ...c, hasClassTeacher: assignedIds.has(c.id) }));
+};
+
 export const AcademicService = {
   createAcademicYear,
   getAllAcademicYears,
@@ -95,4 +112,5 @@ export const AcademicService = {
   getAllAcademicSections,
   createAcademicSubject,
   getAllAcademicSubjects,
+  getPublicClasses
 };

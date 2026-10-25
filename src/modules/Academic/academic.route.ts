@@ -20,27 +20,30 @@ router.post(
   "/create-year",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
   validateRequest(AcademicValidation.createAcademicYearValidationSchema),
-  AcademicController.createAcademicYear
+  AcademicController.createAcademicYear,
 );
 
 router.get(
   "/years",
   authGuard(...allowedRoles),
-  AcademicController.getAllAcademicYears
+  AcademicController.getAllAcademicYears,
 );
+
+// Public: lightweight class list for admission and teacher registration forms
+router.get("/public/classes", AcademicController.getPublicClasses);
 
 // Academic Class Routes
 router.post(
   "/create-class",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
   validateRequest(AcademicValidation.createAcademicClassValidationSchema),
-  AcademicController.createAcademicClass
+  AcademicController.createAcademicClass,
 );
 
 router.get(
   "/classes",
   authGuard(...allowedRoles),
-  AcademicController.getAllAcademicClasses
+  AcademicController.getAllAcademicClasses,
 );
 
 // Academic Section Routes
@@ -48,13 +51,13 @@ router.post(
   "/create-section",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
   validateRequest(AcademicValidation.createAcademicSectionValidationSchema),
-  AcademicController.createAcademicSection
+  AcademicController.createAcademicSection,
 );
 
 router.get(
   "/sections",
   authGuard(...allowedRoles),
-  AcademicController.getAllAcademicSections
+  AcademicController.getAllAcademicSections,
 );
 
 // Academic Subject Routes
@@ -62,13 +65,13 @@ router.post(
   "/create-subject",
   authGuard(Role.SUPER_ADMIN, Role.ACCOUNTS),
   validateRequest(AcademicValidation.createAcademicSubjectValidationSchema),
-  AcademicController.createAcademicSubject
+  AcademicController.createAcademicSubject,
 );
 
 router.get(
   "/subjects",
   authGuard(...allowedRoles),
-  AcademicController.getAllAcademicSubjects
+  AcademicController.getAllAcademicSubjects,
 );
 
 export const AcademicRoutes = router;
