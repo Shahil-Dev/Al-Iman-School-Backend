@@ -59,13 +59,18 @@ const createAdmissionValidationSchema = z.object({
       paymentMethod: z.nativeEnum(PaymentMethod, {
         message: "Payment method is required!",
       }),
-      senderPhone: z.string({ message: "Sender phone number is required!" }),
+      senderPhone: z.string().trim().optional(),
+      senderAccountNo: z.string().trim().optional(),
       amount: z.number().positive("Amount must be greater than 0"),
-      transactionId: z.string({ message: "Transaction ID is required!" }),
+      transactionId: z.string().trim().optional(),
     })
     .superRefine((data, ctx) => {
-      // Sender phone and transaction ID are required for every method except CASH
-      if (data.paymentMethod !== PaymentMethod.CASH) {
+      const isMobileBanking =
+        data.paymentMethod === PaymentMethod.BKASH ||
+        data.paymentMethod === PaymentMethod.NAGAD;
+
+      // bKash / Nagad: sender phone and transaction ID are required
+      if (isMobileBanking) {
         if (!data.senderPhone) {
           ctx.addIssue({
             code: "custom",
@@ -81,6 +86,17 @@ const createAdmissionValidationSchema = z.object({
           });
         }
       }
+
+      // Bank deposit: the sender's account number is required
+      if (data.paymentMethod === PaymentMethod.SSLCOMMERZ && !data.senderAccountNo) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["senderAccountNo"],
+          message: "Bank account number is required!",
+        });
+      }
+
+      // CASH: no payment details are needed
     }),
 });
 

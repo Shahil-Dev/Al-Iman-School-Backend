@@ -5,21 +5,35 @@ const createFeeStructureValidationSchema = z.object({
   body: z.object({
     classId: z.string({ message: "Class ID is required!" }),
     feeHeadId: z.string({ message: "Fee Head ID is required!" }),
-    amount: z.number({ message: "Amount is required!" }).positive("Amount must be positive"),
+    amount: z
+      .number({ message: "Amount is required!" })
+      .positive("Amount must be positive"),
   }),
 });
 
 const createInvoiceValidationSchema = z.object({
   body: z.object({
     studentId: z.string({ message: "Student ID is required!" }),
-    amount: z.number({ message: "Amount is required!" }).positive("Amount must be greater than 0"),
+    amount: z
+      .number({ message: "Amount is required!" })
+      .positive("Amount must be greater than 0"),
     dueDate: z.string({ message: "Due date is required!" }),
+    reason: z
+      .string()
+      .trim()
+      .max(200, "Reason must be within 200 characters")
+      .optional(),
   }),
 });
 
 const generateMonthlyInvoicesValidationSchema = z.object({
   body: z.object({
     dueDate: z.string({ message: "Due date is required!" }),
+    reason: z
+      .string()
+      .trim()
+      .max(200, "Reason must be within 200 characters")
+      .optional(),
   }),
 });
 
@@ -37,7 +51,9 @@ const collectPaymentValidationSchema = z.object({
 const approvePaymentValidationSchema = z.object({
   body: z.object({
     transactionId: z.string({ message: "Transaction ID is required!" }),
-    status: z.nativeEnum(TransactionStatus, { message: "Invalid transaction status!" }),
+    status: z.nativeEnum(TransactionStatus, {
+      message: "Invalid transaction status!",
+    }),
     note: z.string().optional(),
   }),
 });

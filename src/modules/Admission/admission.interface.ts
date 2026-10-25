@@ -52,9 +52,10 @@ export type TCreateAdmissionPayload = {
   // Academic & Payment Information
   classId: string;
   paymentMethod: PaymentMethod;
-  senderPhone: string;
+  senderPhone?: string; // required only for bKash / Nagad
+  senderAccountNo?: string; // required only for bank deposits
   amount: number;
-  transactionId: string;
+  transactionId?: string; // required only for bKash / Nagad
 };
 
 export type TRejectAdmissionPayload = {

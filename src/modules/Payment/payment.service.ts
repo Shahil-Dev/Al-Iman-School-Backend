@@ -148,6 +148,7 @@ const generateMonthlyInvoicesInDB = async (
         amount: totalAmount,
         dueDate,
         status: PaymentStatus.PENDING,
+        reason: payload.reason?.trim() || null,
       },
     });
 
@@ -188,6 +189,7 @@ const createInvoiceIntoDB = async (payload: TCreateInvoicePayload) => {
       amount: payload.amount,
       dueDate: new Date(payload.dueDate),
       status: PaymentStatus.PENDING,
+      reason: payload.reason?.trim() || null,
     },
     include: {
       student: {
@@ -226,7 +228,14 @@ const createInvoiceIntoDB = async (payload: TCreateInvoicePayload) => {
 
 // 4. Collect Payment (Offline/Cash: APPROVED immediately; Online/Bank: PENDING_APPROVAL)
 const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
-  const {  invoiceId, amount, method, transactionId, receiptUrl, senderAccountNo } = payload;
+  const {
+    invoiceId,
+    amount,
+    method,
+    transactionId,
+    receiptUrl,
+    senderAccountNo,
+  } = payload;
 
   const invoice = await prisma.studentInvoice.findUnique({
     where: { id: invoiceId },
@@ -264,9 +273,9 @@ const processPaymentInDB = async (payload: TCollectPaymentPayload) => {
     ? TransactionStatus.APPROVED
     : TransactionStatus.PENDING_APPROVAL;
 
-  const finalTrxId =  transactionId
-  ? transactionId.trim()
-  : `${isCash ? "CASH" : "BANK"}-${Date.now().toString().slice(-6)}`;
+  const finalTrxId = transactionId
+    ? transactionId.trim()
+    : `${isCash ? "CASH" : "BANK"}-${Date.now().toString().slice(-6)}`;
 
   const result = await prisma.$transaction(async (tx) => {
     const transaction = await tx.paymentTransaction.create({
@@ -533,11 +542,12 @@ const verifyInvoiceAccess = async (
       select: { id: true },
     });
     if (!child) {
-      throw new Error("Unauthorized! This student is not linked to your account.");
+      throw new Error(
+        "Unauthorized! This student is not linked to your account.",
+      );
     }
   }
 };
-
 
 // 9. Get Student Invoices
 const getStudentInvoicesFromDB = async (studentId: string) => {
@@ -590,5 +600,5 @@ export const PaymentService = {
   sendWhatsAppNotification,
   getRecipientPhone,
   formatBDPhone,
-  verifyInvoiceAccess
+  verifyInvoiceAccess,
 };

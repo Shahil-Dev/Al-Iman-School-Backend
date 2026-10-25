@@ -16,12 +16,15 @@ import {
 
 // 1. Submit Admission Application
 const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
-  const existingTrx = await prisma.admissionApplication.findUnique({
-    where: { transactionId: payload.transactionId },
-  });
+  // Cash and bank applications have no TrxID, so only check duplicates when one is given
+  if (payload.transactionId) {
+    const existingTrx = await prisma.admissionApplication.findUnique({
+      where: { transactionId: payload.transactionId },
+    });
 
-  if (existingTrx) {
-    throw new Error("This Transaction ID (TrxID) has already been used!");
+    if (existingTrx) {
+      throw new Error("This Transaction ID (TrxID) has already been used!");
+    }
   }
 
   const applicationNo = `ADM-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -29,6 +32,9 @@ const submitAdmissionIntoDB = async (payload: TCreateAdmissionPayload) => {
   const result = await prisma.admissionApplication.create({
     data: {
       ...payload,
+      // Empty strings would collide on the unique transactionId column
+      transactionId: payload.transactionId || undefined,
+      senderPhone: payload.senderPhone || undefined,
       dateOfBirth: new Date(payload.dateOfBirth),
       passportExpiryDate: payload.passportExpiryDate
         ? new Date(payload.passportExpiryDate)

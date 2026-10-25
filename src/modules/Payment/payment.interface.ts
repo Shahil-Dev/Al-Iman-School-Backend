@@ -10,11 +10,13 @@ export type TCreateInvoicePayload = {
   studentId: string;
   amount: number;
   dueDate: string;
+  reason?: string;
 };
 
 export type TGenerateMonthlyInvoicesPayload = {
   monthTitle: string; // e.g. "Monthly Tuition Fee - October 2026"
-  dueDate: string;    // e.g. "2026-10-10"
+  dueDate: string; // e.g. "2026-10-10"
+  reason?: string;
 };
 
 export type TCollectPaymentPayload = {
