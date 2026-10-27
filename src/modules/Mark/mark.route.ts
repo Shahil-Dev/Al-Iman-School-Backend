@@ -21,6 +21,13 @@ router.post(
   MarkController.saveBulkMarks
 );
 
+router.post(
+  '/save-student-marks',
+  authGuard(Role.SUPER_ADMIN, Role.TEACHER),
+  validateRequest(MarkValidation.saveStudentMarksValidationSchema),
+  MarkController.saveStudentMarks
+);
+
 // Fixed path to align with /api/v1/marks/marksheet/:examId/:studentId
 router.get(
   '/marksheet/:examId/:studentId',

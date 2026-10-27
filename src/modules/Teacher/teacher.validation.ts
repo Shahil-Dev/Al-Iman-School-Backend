@@ -18,10 +18,39 @@ const registerTeacherValidationSchema = z.object({
     bloodGroup: z.string().optional(),
     nidOrPassport: z.string().optional(),
 
+    classTeacherOfId: z.string().optional(),
+
     photoUrl: z.string().optional(),
+  }),
+});
+
+const optionalText = z.string().trim().nullable().optional();
+
+const updateTeacherValidationSchema = z.object({
+  body: z.object({
+    name: z.string().trim().min(1, { message: 'Name cannot be empty!' }).optional(),
+    email: z.string().trim().email({ message: 'Valid email is required!' }).optional(),
+    phone: z.string().trim().min(1, { message: 'Phone cannot be empty!' }).optional(),
+    designation: z
+      .string()
+      .trim()
+      .min(1, { message: 'Designation cannot be empty!' })
+      .optional(),
+
+    department: optionalText,
+    qualification: optionalText,
+    bloodGroup: optionalText,
+    nidOrPassport: optionalText,
+
+    gender: z.nativeEnum(Gender, { message: 'Invalid gender!' }).optional(),
+    photoUrl: z.string().nullable().optional(),
+
+    classTeacherOfId: z.string().nullable().optional(),
+    replaceClassTeacher: z.boolean().optional(),
   }),
 });
 
 export const TeacherValidation = {
   registerTeacherValidationSchema,
+  updateTeacherValidationSchema,
 };

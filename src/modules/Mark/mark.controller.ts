@@ -25,6 +25,17 @@ const saveBulkMarks = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const saveStudentMarks = catchAsync(async (req: Request, res: Response) => {
+  const result = await MarkService.saveStudentMarksIntoDB(req.body);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Student marks saved successfully!",
+    data: result,
+  });
+});
+
 const getStudentMarksheet = catchAsync(async (req: Request, res: Response) => {
   const { examId, studentId } = req.params;
   const result = await MarkService.getStudentMarksheetFromDB(
@@ -43,5 +54,6 @@ const getStudentMarksheet = catchAsync(async (req: Request, res: Response) => {
 export const MarkController = {
   saveMark,
   saveBulkMarks,
+  saveStudentMarks,
   getStudentMarksheet,
 };

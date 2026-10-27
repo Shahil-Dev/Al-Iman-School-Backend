@@ -17,3 +17,15 @@ export type TBulkSaveMarkPayload = {
   subjectId: string;
   marks: TSaveSingleMark[];
 };
+
+export type TStudentSubjectMark = {
+  subjectId: string;
+  mtMarks?: number;
+  terminal: number;
+};
+
+export type TSaveStudentMarksPayload = {
+  examId: string;
+  studentId: string;
+  marks: TStudentSubjectMark[];
+};
