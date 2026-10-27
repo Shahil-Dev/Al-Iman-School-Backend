@@ -22,13 +22,13 @@ const saveMarkIntoDB = async (payload: TSaveMarkPayload) => {
 
   if (totalMarks > subject.fullMarks) {
     throw new Error(
-      `Total marks (${totalMarks}) cannot exceed subject full marks (${subject.fullMarks})!`
+      `Total marks (${totalMarks}) cannot exceed subject full marks (${subject.fullMarks})!`,
     );
   }
 
   const { grade, gradePoint } = calculateGradeAndPoint(
     totalMarks,
-    subject.fullMarks
+    subject.fullMarks,
   );
 
   const result = await prisma.mark.upsert({
@@ -86,13 +86,13 @@ const saveBulkMarksIntoDB = async (payload: TBulkSaveMarkPayload) => {
 
     if (totalMarks > subject.fullMarks) {
       throw new Error(
-        `Total marks (${totalMarks}) for student ID ${item.studentId} exceeds full marks (${subject.fullMarks})!`
+        `Total marks (${totalMarks}) for student ID ${item.studentId} exceeds full marks (${subject.fullMarks})!`,
       );
     }
 
     const { grade, gradePoint } = calculateGradeAndPoint(
       totalMarks,
-      subject.fullMarks
+      subject.fullMarks,
     );
 
     return prisma.mark.upsert({
@@ -163,13 +163,13 @@ const saveStudentMarksIntoDB = async (payload: TSaveStudentMarksPayload) => {
 
     if (totalMarks > subject.fullMarks) {
       throw new Error(
-        `Total marks (${totalMarks}) for subject "${subject.name}" exceed full marks (${subject.fullMarks})!`
+        `Total marks (${totalMarks}) for subject "${subject.name}" exceed full marks (${subject.fullMarks})!`,
       );
     }
 
     const { grade, gradePoint } = calculateGradeAndPoint(
       totalMarks,
-      subject.fullMarks
+      subject.fullMarks,
     );
 
     return {
@@ -211,7 +211,7 @@ const saveStudentMarksIntoDB = async (payload: TSaveStudentMarksPayload) => {
         grade: p.grade,
         gradePoint: p.gradePoint,
       },
-    })
+    }),
   );
 
   const result = await prisma.$transaction(operations);
@@ -231,6 +231,7 @@ const getStudentMarksheetFromDB = async (examId: string, studentId: string) => {
         include: {
           class: true,
           section: true,
+          parent: true,
         },
       },
     },
@@ -238,7 +239,6 @@ const getStudentMarksheetFromDB = async (examId: string, studentId: string) => {
 
   return marks || [];
 };
-
 export const MarkService = {
   saveMarkIntoDB,
   saveBulkMarksIntoDB,
