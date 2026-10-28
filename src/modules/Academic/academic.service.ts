@@ -78,14 +78,15 @@ const getAllAcademicSubjects = async () => {
   return await prisma.subject.findMany({
     include: {
       class: true,
-      teacher: true,
+      teacher: {
+        select: { id: true, name: true, designation: true },
+      },
     },
     orderBy: {
       createdAt: 'desc',
     },
   });
 };
-
 // Public, minimal class list; flags classes that already have a class teacher
 const getPublicClasses = async () => {
   const [classes, assigned] = await Promise.all([
