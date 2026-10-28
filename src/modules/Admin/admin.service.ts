@@ -28,11 +28,17 @@ const getDashboardAnalyticsFromDB = async () => {
       pendingPayrolls,
       pendingReviewsCount,
       recentAdmissions,
+      todayPresentCount,
+      todayAbsentCount,
+      todayLateCount,
+      classWiseAttendance,
     ] = await Promise.all([
       prisma.studentProfile.count().catch(() => 0),
       prisma.teacherProfile.count().catch(() => 0),
       prisma.parentProfile.count().catch(() => 0),
-      prisma.admissionApplication.count({ where: { status: "PENDING" } }).catch(() => 0),
+      prisma.admissionApplication
+        .count({ where: { status: "PENDING" } })
+        .catch(() => 0),
 
       prisma.studentInvoice
         .aggregate({
@@ -81,6 +87,88 @@ const getDashboardAnalyticsFromDB = async () => {
           },
         })
         .catch(() => []),
+
+      // TODAY'S ATTENDANCE COUNTS
+      prisma.attendance
+        .count({
+          where: {
+            date: {
+              gte: new Date(
+                new Date()
+                  .toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
+                  .split(",")[0] + " 00:00:00",
+              ),
+              lte: new Date(
+                new Date()
+                  .toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
+                  .split(",")[0] + " 23:59:59",
+              ),
+            },
+            status: "PRESENT",
+          },
+        })
+        .catch(() => 0),
+      prisma.attendance
+        .count({
+          where: {
+            date: {
+              gte: new Date(
+                new Date()
+                  .toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
+                  .split(",")[0] + " 00:00:00",
+              ),
+              lte: new Date(
+                new Date()
+                  .toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
+                  .split(",")[0] + " 23:59:59",
+              ),
+            },
+            status: "ABSENT",
+          },
+        })
+        .catch(() => 0),
+      prisma.attendance
+        .count({
+          where: {
+            date: {
+              gte: new Date(
+                new Date()
+                  .toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
+                  .split(",")[0] + " 00:00:00",
+              ),
+              lte: new Date(
+                new Date()
+                  .toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
+                  .split(",")[0] + " 23:59:59",
+              ),
+            },
+            status: "LATE",
+          },
+        })
+        .catch(() => 0),
+
+      prisma.attendance
+        .groupBy({
+          by: ["classId", "status"],
+          where: {
+            date: {
+              gte: new Date(
+                new Date()
+                  .toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
+                  .split(",")[0] + " 00:00:00",
+              ),
+              lte: new Date(
+                new Date()
+                  .toLocaleString("en-US", { timeZone: "Asia/Dhaka" })
+                  .split(",")[0] + " 23:59:59",
+              ),
+            },
+          },
+          _count: {
+            _all: true,
+          },
+        })
+        .catch(() => []),
     ]);
 
     const totalAmount = totalInvoicedFees._sum?.amount || 0;
@@ -102,6 +190,12 @@ const getDashboardAnalyticsFromDB = async () => {
         pendingPayrollCount: pendingPayrolls._count?.id || 0,
       },
       recentAdmissions,
+      attendance: {
+        present: todayPresentCount,
+        absent: todayAbsentCount,
+        late: todayLateCount,
+        classWise: classWiseAttendance,
+      },
     };
   } catch (error) {
     console.error("Error in getDashboardAnalyticsFromDB:", error);
