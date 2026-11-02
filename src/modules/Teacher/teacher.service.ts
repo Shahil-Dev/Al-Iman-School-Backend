@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import { Role } from '@prisma/client';
 import prisma from '../../lib/prisma';
-import { TRegisterTeacherPayload } from './teacher.interface';
+import { TRegisterTeacherPayload, TUpdateTeacherPayload } from './teacher.interface';
 import { sendEmail } from '../../utils/sendEmail';
 
 // 1. Self Teacher Registration (Account created with isApproved = false)
@@ -148,7 +148,6 @@ const getAllTeachersFromDB = async () => {
   });
 };
 
-
 // 7. Get All Teachers for Admin (Includes Class Teacher Info)
 const getAllTeachersForAdminFromDB = async () => {
   return await prisma.teacherProfile.findMany({
@@ -161,8 +160,6 @@ const getAllTeachersForAdminFromDB = async () => {
           isApproved: true,
         },
       },
-      // Assuming the relation name for class teacher is 'classTeacherOf'
-      // If the relation is different, please let me know.
       classTeacherOf: {
         select: {
           id: true,
@@ -174,25 +171,97 @@ const getAllTeachersForAdminFromDB = async () => {
   });
 };
 
-
-// ------------------- NEW ADDITIONS -------------------
-
-// 5. Update Teacher Profile (Admin Only)
+// 5. Update Teacher Profile (Admin Only) - FIXED LOGIC
 const updateTeacherInDB = async (
   teacherProfileId: string,
-  payload: Partial<TRegisterTeacherPayload>
+  payload: TUpdateTeacherPayload
 ) => {
+  // 1. Check if teacher exists
   const teacherProfile = await prisma.teacherProfile.findUnique({
     where: { id: teacherProfileId },
+    include: { user: true },
   });
 
   if (!teacherProfile) {
     throw new Error('Teacher profile not found!');
   }
 
-  const result = await prisma.teacherProfile.update({
-    where: { id: teacherProfileId },
-    data: payload,
+  // 2. Separate User fields (email) from TeacherProfile fields
+  const { email, classTeacherOfId, replaceClassTeacher, ...profileData } = payload;
+
+  // 3. Handle Email Uniqueness
+  if (email && email !== teacherProfile.user.email) {
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
+      throw new Error('This email is already in use by another account!');
+    }
+  }
+
+  // 4. Handle Phone Uniqueness
+  if (profileData.phone && profileData.phone !== teacherProfile.phone) {
+    const existingPhone = await prisma.teacherProfile.findUnique({ 
+      where: { phone: profileData.phone } 
+    });
+    if (existingPhone) {
+      throw new Error('This phone number is already in use by another teacher!');
+    }
+  }
+
+  // 5. Handle Class Teacher Assignment Logic
+  let classRelationUpdate: any = undefined;
+
+  if (classTeacherOfId !== undefined) {
+    if (classTeacherOfId) {
+      // Check if the class is already assigned to someone else
+      const existingClassTeacher = await prisma.teacherProfile.findUnique({
+        where: { classTeacherOfId },
+      });
+
+      if (existingClassTeacher && existingClassTeacher.id !== teacherProfileId) {
+        if (!replaceClassTeacher) {
+          throw new Error(
+            `This class is already assigned to ${existingClassTeacher.name}.`
+          );
+        } else {
+          // If replacing, remove the class teacher assignment from the previous teacher
+          await prisma.teacherProfile.update({
+            where: { id: existingClassTeacher.id },
+            data: { classTeacherOfId: null },
+          });
+        }
+      }
+      // Connect the new class
+      classRelationUpdate = { connect: { id: classTeacherOfId } };
+    } else {
+      // Disconnect the class teacher assignment
+      classRelationUpdate = { disconnect: true };
+    }
+  }
+
+  // 6. Transaction to update both User (email) and TeacherProfile
+  const result = await prisma.$transaction(async (tx) => {
+    // Update User Email if provided
+    if (email && email !== teacherProfile.user.email) {
+      await tx.user.update({
+        where: { id: teacherProfile.userId },
+        data: { email },
+      });
+    }
+
+    // Update Teacher Profile
+    const updatedProfile = await tx.teacherProfile.update({
+      where: { id: teacherProfileId },
+      data: {
+        ...profileData,
+        classTeacherOf: classRelationUpdate,
+      },
+      include: {
+        user: true,
+        classTeacherOf: true,
+      },
+    });
+
+    return updatedProfile;
   });
 
   return result;
