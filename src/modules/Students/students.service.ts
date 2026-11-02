@@ -189,7 +189,7 @@ const updateStudentInDB = async (
 };
 
 /**
- * Delete student profile and associated user account if present
+ * Delete student profile, all associated relational data (invoices, marks, attendance, documents), and user account
  */
 const deleteStudentFromDB = async (id: string) => {
   const student = await prisma.studentProfile.findFirst({
@@ -201,19 +201,48 @@ const deleteStudentFromDB = async (id: string) => {
     throw new Error("Student profile not found!");
   }
 
-  if (student.userId) {
-    const result = await prisma.user.delete({
-      where: { id: student.userId },
-    });
-    return result;
-  }
+  const studentId = student.id;
+  const userId = student.userId;
 
-  const result = await prisma.studentProfile.delete({
-    where: { id: student.id },
+  // Execute deletion in a transaction to maintain data integrity
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Delete Student Documents
+    await tx.studentDocument.deleteMany({
+      where: { studentId },
+    });
+
+    // 2. Delete Student Invoices
+    await tx.studentInvoice.deleteMany({
+      where: { studentId },
+    });
+
+    // 3. Delete Student Marks
+    await tx.mark.deleteMany({
+      where: { studentId },
+    });
+
+    // 4. Delete Student Attendances
+    await tx.attendance.deleteMany({
+      where: { studentId },
+    });
+
+    // 5. Delete Student Profile
+    const deletedProfile = await tx.studentProfile.delete({
+      where: { id: studentId },
+    });
+
+    // 6. Delete User Account if it exists
+    if (userId) {
+      await tx.user.delete({
+        where: { id: userId },
+      });
+    }
+
+    return deletedProfile;
   });
+
   return result;
 };
-
 export const StudentService = {
   createStudentIntoDB,
   getAllStudentsFromDB,
