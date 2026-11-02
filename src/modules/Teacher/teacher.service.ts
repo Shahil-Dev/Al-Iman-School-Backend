@@ -127,6 +127,7 @@ const approveTeacherInDB = async (teacherProfileId: string) => {
   return updatedUser;
 };
 
+
 // 4. Get All Approved Teachers
 const getAllTeachersFromDB = async () => {
   return await prisma.teacherProfile.findMany({
@@ -141,6 +142,13 @@ const getAllTeachersFromDB = async () => {
           email: true,
           role: true,
           isApproved: true,
+        },
+      },
+      // 👇 ক্লাস টিচারের ডাটা যুক্ত করা হলো
+      classTeacherOf: {
+        select: {
+          id: true,
+          name: true,
         },
       },
     },
