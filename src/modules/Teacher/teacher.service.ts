@@ -148,6 +148,33 @@ const getAllTeachersFromDB = async () => {
   });
 };
 
+
+// 7. Get All Teachers for Admin (Includes Class Teacher Info)
+const getAllTeachersForAdminFromDB = async () => {
+  return await prisma.teacherProfile.findMany({
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isApproved: true,
+        },
+      },
+      // Assuming the relation name for class teacher is 'classTeacherOf'
+      // If the relation is different, please let me know.
+      classTeacherOf: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+
 // ------------------- NEW ADDITIONS -------------------
 
 // 5. Update Teacher Profile (Admin Only)
@@ -203,5 +230,6 @@ export const TeacherService = {
   approveTeacherInDB,
   getAllTeachersFromDB,
   updateTeacherInDB,
-  deleteTeacherFromDB
+  deleteTeacherFromDB,
+  getAllTeachersForAdminFromDB
 };

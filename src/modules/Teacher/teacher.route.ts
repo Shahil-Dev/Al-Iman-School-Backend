@@ -32,11 +32,11 @@ router.patch(
 router.get('/', TeacherController.getAllTeachers);
 
 // Admin Only: full teacher list used by the edit form
-// router.get(
-//   '/admin/all',
-//   authGuard(Role.SUPER_ADMIN),
-//   TeacherController.getAllTeachersForAdmin
-// );
+router.get(
+  '/admin/all',
+  authGuard(Role.SUPER_ADMIN),
+  TeacherController.getAllTeachersForAdmin
+);
 
 // Admin Only: Update Teacher Profile Info
 router.patch(
