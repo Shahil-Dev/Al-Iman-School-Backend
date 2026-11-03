@@ -125,28 +125,53 @@ const approveAdmissionInDB = async (
   const firstName = nameParts[0];
   const lastName = nameParts.slice(1).join(" ") || "N/A";
 
+  // 🛑 Determine Parent Info
+  const parentEmail = application.guardianEmail || application.email;
+  const parentPhone = application.guardianPhone || application.phone;
+
   // Transaction Execution: User -> Student Profile -> Update Application
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Existing User Check
-    let user = await tx.user.findUnique({
-      where: { email: application.email },
+    // 1. Find or Create Parent Profile (NOT Student User!)
+    let parentProfile = await tx.parentProfile.findFirst({
+      where: {
+        OR: [{ phone: parentPhone }, { user: { email: parentEmail } }],
+      },
+      include: { user: true },
     });
 
-    if (!user) {
-      user = await tx.user.create({
+    if (!parentProfile) {
+      // Check if a user with the email already exists
+      let parentUser = await tx.user.findUnique({
+        where: { email: parentEmail },
+      });
+
+      if (!parentUser) {
+        parentUser = await tx.user.create({
+          data: {
+            email: parentEmail,
+            password: hashedPassword, // default password for parent
+            role: Role.PARENT,
+            isApproved: true,
+          },
+        });
+      }
+
+      parentProfile = await tx.parentProfile.create({
         data: {
-          email: application.email,
-          password: hashedPassword,
-          role: Role.STUDENT,
-          isApproved: true,
+          userId: parentUser.id,
+          fatherName: application.fatherName || "N/A",
+          motherName: application.motherName || "N/A",
+          phone: parentPhone,
+          occupation: application.fatherOccupation || "N/A",
         },
+        include: { user: true },
       });
     }
 
-    // 2. Create Detailed Student Profile
+    // 2. Create Detailed Student Profile (No userId for student!)
     const studentProfile = await tx.studentProfile.create({
       data: {
-        userId: user.id,
+        // userId: null, // students log in via studentCode
         studentCode,
         pin: defaultPin,
         studentIdNo,
@@ -186,6 +211,9 @@ const approveAdmissionInDB = async (
         classId: application.classId,
         sectionId: targetSectionId,
         rollNo: targetRollNo,
+
+        // 🛑 Link to parent
+        parentId: parentProfile.id,
       },
       include: {
         class: true,
@@ -199,7 +227,7 @@ const approveAdmissionInDB = async (
       data: { status: AdmissionStatus.APPROVED },
     });
 
-    return { user, studentProfile, updatedApplication };
+    return { parentProfile, studentProfile, updatedApplication };
   });
 
   // 🔴 WhatsApp Notification Dispatch (Non-blocking)
@@ -229,8 +257,6 @@ const approveAdmissionInDB = async (
         <li><b>Student ID No:</b> ${studentIdNo}</li>
         <li><b>Default PIN:</b> ${defaultPin}</li>
         <li><b>Roll No:</b> ${targetRollNo}</li>
-        <li><b>Email:</b> ${application.email}</li>
-        <li><b>Default Password:</b> ${defaultPassword}</li>
       </ul>
       <p>Please log in to the portal and update your password and PIN immediately.</p>
     `;
